@@ -4,16 +4,265 @@
 </style></head><body><main class="wrap">
 <header><div><h1>工程專案管理系統</h1><p>專案資料、物料主檔與人工主檔均儲存在本機資料庫</p></div><div class="project"><label>目前專案<select id="projectSelect"></select></label><button id="newProject" class="secondary">建立專案</button></div></header>
 <section class="grid"><div class="card"><div class="label">整體進度</div><div class="value" id="overall">0%</div><div class="progress"><b id="overallBar"></b></div></div><div class="card"><div class="label">成本預算</div><div class="value" id="budget">$0</div><div class="sub">物料＋人工預算</div></div><div class="card"><div class="label">實際成本</div><div class="value" id="actual">$0</div><div class="sub" id="costRate">尚無資料</div></div><div class="card"><div class="label">預算差異</div><div class="value" id="variance">$0</div><div class="sub" id="varianceNote">預算 − 實際</div></div></section>
-<nav class="tabs"><button class="tab active" data-page="progress">工程進度</button><button class="tab" data-page="materials">物料成本</button><button class="tab" data-page="labor">人工成本</button><button class="tab" data-page="master">成本主檔</button><button class="tab" data-page="report">成本報表</button></nav>
-<section id="progress" class="page active"><div class="panel"><h2>新增工程項目</h2><form id="progressForm"><label>工程項目<input name="name" required placeholder="例如：基礎工程"></label><label>開始日期<input name="start" type="date" required></label><label>預計完工<input name="end" type="date" required></label><label>預計進度 %<input name="planned" type="number" min="0" max="100" value="0" required></label><label>實際進度 %<input name="actual" type="number" min="0" max="100" value="0" required></label><button>新增項目</button></form></div><div class="panel"><h2>工程進度表</h2><div class="table-wrap"><table><thead><tr><th>工程項目</th><th>開始</th><th>預計完工</th><th class="num">預計</th><th>實際進度</th><th class="num">差異</th><th></th></tr></thead><tbody id="progressBody"></tbody></table></div></div></section>
-<section id="materials" class="page"><div class="panel"><h2>由物料主檔帶入</h2><p class="hint">選取後會自動帶入物料名稱、單位及預設單價，可再修改本專案的數量與單價。</p><form id="materialForm"><label>物料主檔<select id="materialPick" name="masterId"></select></label><label>物料名稱<input id="materialName" name="name" required></label><label>單位<input id="materialUnit" name="unit" required></label><label>數量<input name="qty" type="number" min="0" step="0.01" required></label><label>預算／實際單價<input id="materialPrice" name="price" type="number" min="0" step="0.01" required></label><button>加入本專案</button></form></div><div class="panel"><h2>物料成本明細</h2><div class="table-wrap"><table><thead><tr><th>物料</th><th>單位</th><th class="num">數量</th><th class="num">預算單價</th><th class="num">預算金額</th><th class="num">實際單價</th><th class="num">實際金額</th><th class="num">差異</th><th></th></tr></thead><tbody id="materialBody"></tbody></table></div></div></section>
-<section id="labor" class="page"><div class="panel"><h2>由人工主檔帶入</h2><p class="hint">選取工種後帶入預設時薪；專案內可依實際情況調整工作項目、工時與時薪。</p><form id="laborForm"><label>人工主檔<select id="laborPick" name="masterId"></select></label><label>工種／人員<input id="laborName" name="name" required></label><label>工作項目<input name="task" required placeholder="例如：砌磚"></label><label>工時（小時）<input name="hours" type="number" min="0" step="0.5" required></label><label>預算／實際時薪<input id="laborPrice" name="price" type="number" min="0" step="0.01" required></label><button>加入本專案</button></form></div><div class="panel"><h2>人工成本明細</h2><div class="table-wrap"><table><thead><tr><th>工種／人員</th><th>工作項目</th><th class="num">工時</th><th class="num">預算時薪</th><th class="num">預算金額</th><th class="num">實際時薪</th><th class="num">實際金額</th><th class="num">差異</th><th></th></tr></thead><tbody id="laborBody"></tbody></table></div></div></section>
-<section id="master" class="page"><div class="two"><div class="panel"><h2>物料成本主檔</h2><form id="masterMaterialForm"><label>物料名稱<input name="name" required></label><label>單位<input name="unit" required placeholder="包、噸、m²"></label><label>預設單價<input name="price" type="number" min="0" step="0.01" required></label><button>新增物料</button></form><h3>已建立物料</h3><div class="table-wrap"><table><thead><tr><th>物料</th><th>單位</th><th class="num">預設單價</th><th></th></tr></thead><tbody id="masterMaterialBody"></tbody></table></div></div><div class="panel"><h2>人工成本主檔</h2><form id="masterLaborForm"><label>工種／人員<input name="name" required></label><label>計價單位<input name="unit" value="小時" required></label><label>預設時薪<input name="price" type="number" min="0" step="0.01" required></label><button>新增人工</button></form><h3>已建立人工</h3><div class="table-wrap"><table><thead><tr><th>工種／人員</th><th>單位</th><th class="num">預設時薪</th><th></th></tr></thead><tbody id="masterLaborBody"></tbody></table></div></div></div></section>
-<section id="report" class="page"><div class="two"><div class="panel"><h2>成本彙總</h2><div id="costSummary"></div></div><div class="panel"><h2>資料庫管理</h2><p class="hint">資料保存於本裝置的 IndexedDB。可匯出完整資料庫作為備份。</p><button id="exportBtn" class="secondary">匯出資料庫備份</button> <button id="deleteProject" class="danger">刪除目前專案</button></div></div></section>
-</main><script>
+<nav class="tabs"><button class="tab active" data-page="progress">工程進度</button><button class="tab" data-page="daily">每日成本</button><button class="tab" data-page="materials">物料成本</button><button class="tab" data-page="labor">人工成本</button><button class="tab" data-page="master">成本主檔</button><button class="tab" data-page="report">成本報表</button></nav>
+<section id="progress" class="page active"><div class="panel"><h2>新增工程項目／施作工項</h2><p class="hint">「所屬工程項目」留白時建立工程項目；選取後即在該工程項目下建立施作工項。</p><form id="progressForm"><label>所屬工程項目<select id="progressParent" name="parent"></select></label><label>名稱<input name="name" required placeholder="例如：電纜敷設"></label><label>開始日期<input name="start" type="date" required></label><label>預計完工<input name="end" type="date" required></label><label>預計進度 %<input name="planned" type="number" min="0" max="100" value="0" required></label><label>實際進度 %<input name="actual" type="number" min="0" max="100" value="0" required></label><button>新增項目</button></form></div><div class="panel"><h2>工程進度表</h2><p class="hint">點選工程項目可展開或收合施作工項；點選施作工項可查看該項目的進度與成本報表。</p><div class="table-wrap"><table><thead><tr><th>工程項目／施作工項</th><th>開始</th><th>預計完工</th><th class="num">預計</th><th>實際進度</th><th class="num">差異</th><th></th></tr></thead><tbody id="progressBody"></tbody></table></div></div><div class="panel" id="taskDetail"><h2>工程項目報表</h2><p class="hint">請在上方工程進度表點選一個工程項目。</p></div></section>
+<section id="daily" class="page"><div class="panel"><h2>每日預計成本（工程排程）</h2><p class="hint">先建立施工工項，再以日期與工種為單位登錄預計物料、人工費及出工人數。</p><form id="dailyPlanForm"><label>日期<input name="date" type="date" required></label><label>施工工項<select id="dailyPlanTask" name="task"></select></label><label>預計工種<input name="trade" required placeholder="例如：泥作"></label><label>預計人數<input name="people" type="number" min="0" step="1" value="0" required></label><label>預計物料費<input name="material" type="number" min="0" step="0.01" value="0" required></label><label>預計人工費<input name="labor" type="number" min="0" step="0.01" value="0" required></label><button>建立每日預算</button></form></div><div class="panel"><h2>每日實際成本（施工填報）</h2><p class="hint">依日期、施工工項及工種填報實際出工人數與成本。</p><form id="dailyActualForm"><label>日期<input name="date" type="date" required></label><label>施工工項<select id="dailyActualTask" name="task"></select></label><label>實際工種<input name="trade" required placeholder="例如：泥作"></label><label>實際人數<input name="people" type="number" min="0" step="1" value="0" required></label><label>實際物料費<input name="material" type="number" min="0" step="0.01" value="0" required></label><label>實際人工費<input name="labor" type="number" min="0" step="0.01" value="0" required></label><button>填報實際成本</button></form></div><div class="panel"><h2>每日成本差異</h2><div class="table-wrap"><table><thead><tr><th>日期</th><th>施工工項</th><th>工種</th><th class="num">預計人數</th><th class="num">實際人數</th><th class="num">預計物料</th><th class="num">預計人工</th><th class="num">實際物料</th><th class="num">實際人工</th><th class="num">預算差異</th><th></th></tr></thead><tbody id="dailyBody"></tbody></table></div></div></section>
+<section id="materials" class="page"><div class="panel"><h2>由物料主檔帶入</h2><p class="hint">選取後會自動帶入物料名稱、單位及預設單價，可再修改本專案的數量與單價。</p><form id="materialForm"><label>施工工項<select id="materialTask" name="task"></select></label><label>物料主檔<select id="materialPick" name="masterId"></select></label><label>物料名稱<input id="materialName" name="name" required></label><label>單位<input id="materialUnit" name="unit" required></label><label>數量<input name="qty" type="number" min="0" step="0.01" required></label><label>預算／實際單價<input id="materialPrice" name="price" type="number" min="0" step="0.01" required></label><button>加入本專案</button></form></div><div class="panel"><h2>物料成本明細</h2><div class="table-wrap"><table><thead><tr><th>物料</th><th>單位</th><th class="num">數量</th><th class="num">預算單價</th><th class="num">預算金額</th><th class="num">實際單價</th><th class="num">實際金額</th><th class="num">差異</th><th></th></tr></thead><tbody id="materialBody"></tbody></table></div></div></section>
+<section id="labor" class="page"><div class="panel"><h2>由人工主檔帶入</h2><p class="hint">人工主檔為所有專案共用。設定起訖日期後，系統會自動計算期間人天數；每日工時預設為 8 小時。</p><form id="laborForm"><label>人工主檔<select id="laborPick" name="masterId"></select></label><label>工種／人員<input id="laborName" name="name" required></label><label>施工工項<input name="task" required placeholder="例如：砌磚"></label><label>開始日期<input name="start" type="date" required></label><label>結束日期<input name="end" type="date" required></label><label>出工人數<input name="people" type="number" min="1" step="1" value="1" required></label><label>每日工時<input name="dailyHours" type="number" min="0" step="0.5" value="8" required></label><label>預算／實際日薪<input id="laborPrice" name="price" type="number" min="0" step="0.01" required></label><button>加入本專案</button></form></div><div class="panel"><h2>人工成本明細</h2><div class="table-wrap"><table><thead><tr><th>工種／人員</th><th>施工工項</th><th>起訖日期</th><th class="num">人數</th><th class="num">出工天數</th><th class="num">每日工時</th><th class="num">預算日薪</th><th class="num">預算金額</th><th class="num">實際日薪</th><th class="num">實際金額</th><th class="num">差異</th><th></th></tr></thead><tbody id="laborBody"></tbody></table></div></div></section>
+<section id="master" class="page"><div class="two"><div class="panel"><h2>物料成本主檔</h2><p class="hint">主檔資料可在所有專案直接選用。</p><form id="masterMaterialForm"><label>物料名稱<input name="name" required></label><label>單位<input name="unit" required placeholder="包、噸、m²"></label><label>預設單價<input name="price" type="number" min="0" step="0.01" required></label><button>新增物料</button></form><h3>已建立物料</h3><div class="table-wrap"><table><thead><tr><th>物料</th><th>單位</th><th class="num">預設單價</th><th></th></tr></thead><tbody id="masterMaterialBody"></tbody></table></div></div><div class="panel"><h2>人工成本主檔</h2><p class="hint">主檔資料可在所有專案直接選用，人工統一以「日」計價。</p><form id="masterLaborForm"><label>工種／人員<input name="name" required></label><label>計價單位<input name="unit" value="日" readonly required></label><label>預設日薪<input name="price" type="number" min="0" step="0.01" required></label><button>新增人工</button></form><h3>已建立人工</h3><div class="table-wrap"><table><thead><tr><th>工種／人員</th><th>單位</th><th class="num">預設日薪</th><th></th></tr></thead><tbody id="masterLaborBody"></tbody></table></div></div></div></section>
+<section id="report" class="page"><div class="two"><div class="panel"><h2>成本彙總</h2><div id="costSummary"></div></div><div class="panel"><h2>資料庫管理</h2><p class="hint">資料保存於本裝置的 IndexedDB。每日工作報表匯入會合併至目前專案；完整資料庫匯入則會覆寫資料庫。</p><p><button id="dailyTemplateBtn" class="secondary">匯出每日工作報表範本</button> <button id="excelExportBtn" class="secondary">匯出完整 Excel</button></p><p><button id="exportBtn" class="secondary">匯出 JSON 備份</button> <input id="excelImportInput" type="file" accept=".xlsx,.xls" hidden><button id="excelImportBtn" class="secondary">匯入 Excel</button> <button id="deleteProject" class="danger">刪除目前專案</button></p></div></div></section>
+</main><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script>
 const $=id=>document.getElementById(id),fmt=n=>new Intl.NumberFormat('zh-TW',{style:'currency',currency:'TWD',maximumFractionDigits:0}).format(n||0),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let db,current,masters={materials:[],labor:[]};
 function openDB(){return new Promise((ok,no)=>{let r=indexedDB.open('ConstructionProjectDB',1);r.onupgradeneeded=()=>{let d=r.result;d.createObjectStore('projects',{keyPath:'id',autoIncrement:true});d.createObjectStore('materialMasters',{keyPath:'id',autoIncrement:true});d.createObjectStore('laborMasters',{keyPath:'id',autoIncrement:true})};r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}function tx(store,mode='readonly'){return db.transaction(store,mode).objectStore(store)}function all(store){return new Promise((ok,no)=>{let r=tx(store).getAll();r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}function put(store,value){return new Promise((ok,no)=>{let r=tx(store,'readwrite').put(value);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}function remove(store,id){return new Promise((ok,no)=>{let r=tx(store,'readwrite').delete(id);r.onsuccess=()=>ok();r.onerror=()=>no(r.error)})}
 async function init(){db=await openDB();if(!(await all('projects')).length)await put('projects',{name:'範例工程專案',progress:[],materials:[],labor:[]});await refreshProjects();await refreshMasters()}async function refreshProjects(){let ps=await all('projects');let s=$('projectSelect');s.innerHTML=ps.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');if(!current||!ps.some(p=>p.id===current.id))current=ps[0];else current=ps.find(p=>p.id===current.id);s.value=current.id;render()}async function refreshMasters(){masters.materials=await all('materialMasters');masters.labor=await all('laborMasters');let mp=$('materialPick'),lp=$('laborPick');mp.innerHTML='<option value="">手動輸入</option>'+masters.materials.map(x=>`<option value="${x.id}">${esc(x.name)}（${x.unit}）</option>`).join('');lp.innerHTML='<option value="">手動輸入</option>'+masters.labor.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');$('masterMaterialBody').innerHTML=masters.materials.length?masters.materials.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.unit)}</td><td class="num">${fmt(x.price)}</td><td><button class="danger" onclick="delMaster('materialMasters',${x.id})">刪除</button></td></tr>`).join(''):empty(4);$('masterLaborBody').innerHTML=masters.labor.length?masters.labor.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.unit)}</td><td class="num">${fmt(x.price)}</td><td><button class="danger" onclick="delMaster('laborMasters',${x.id})">刪除</button></td></tr>`).join(''):empty(4)}function total(){let mb=current.materials.reduce((s,x)=>s+x.qty*x.budget,0),ma=current.materials.reduce((s,x)=>s+x.qty*x.actual,0),lb=current.labor.reduce((s,x)=>s+x.hours*x.budget,0),la=current.labor.reduce((s,x)=>s+x.hours*x.actual,0);return{mb,ma,lb,la,b:mb+lb,a:ma+la}}function diff(n){return `<span class="${n<0?'over':'under'}">${fmt(n)}</span>`}function empty(c){return `<tr><td colspan="${c}" class="empty">尚無資料</td></tr>`}async function saveProject(){await put('projects',current);render()}function render(){if(!current)return;let a=current.progress.length?current.progress.reduce((s,x)=>s+x.actual,0)/current.progress.length:0,t=total();$('overall').textContent=a.toFixed(1)+'%';$('overallBar').style.width=a+'%';$('budget').textContent=fmt(t.b);$('actual').textContent=fmt(t.a);$('costRate').textContent=t.b?`已使用 ${(t.a/t.b*100).toFixed(1)}% 預算`:'尚無預算資料';$('variance').innerHTML=diff(t.b-t.a);$('varianceNote').textContent=t.b-t.a<0?'已超出預算':'尚在預算內';$('progressBody').innerHTML=current.progress.length?current.progress.map((x,i)=>`<tr><td>${esc(x.name)}</td><td>${x.start}</td><td>${x.end}</td><td class="num">${x.planned}%</td><td class="bar"><span><b style="width:${x.actual}%"></b></span> ${x.actual}%</td><td class="num">${x.actual-x.planned}%</td><td><button class="danger" onclick="delDetail('progress',${i})">刪除</button></td></tr>`).join(''):empty(7);$('materialBody').innerHTML=current.materials.length?current.materials.map((x,i)=>{let b=x.qty*x.budget,a=x.qty*x.actual;return `<tr><td>${esc(x.name)}</td><td>${esc(x.unit)}</td><td class="num">${x.qty}</td><td class="num">${fmt(x.budget)}</td><td class="num">${fmt(b)}</td><td class="num">${fmt(x.actual)}</td><td class="num">${fmt(a)}</td><td class="num">${diff(b-a)}</td><td><button class="danger" onclick="delDetail('materials',${i})">刪除</button></td></tr>`}).join(''):empty(9);$('laborBody').innerHTML=current.labor.length?current.labor.map((x,i)=>{let b=x.hours*x.budget,a=x.hours*x.actual;return `<tr><td>${esc(x.name)}</td><td>${esc(x.task)}</td><td class="num">${x.hours}</td><td class="num">${fmt(x.budget)}</td><td class="num">${fmt(b)}</td><td class="num">${fmt(x.actual)}</td><td class="num">${fmt(a)}</td><td class="num">${diff(b-a)}</td><td><button class="danger" onclick="delDetail('labor',${i})">刪除</button></td></tr>`}).join(''):empty(9);$('costSummary').innerHTML=[['物料',t.mb,t.ma],['人工',t.lb,t.la],['合計',t.b,t.a]].map(x=>`<div class="cost-row"><div><b>${x[0]}</b><br><span class="sub">預算 ${fmt(x[1])} ｜ 實際 ${fmt(x[2])}</span></div><div>${diff(x[1]-x[2])}</div></div>`).join('')}
 window.delDetail=async(type,i)=>{current[type].splice(i,1);await saveProject()};window.delMaster=async(store,id)=>{await remove(store,id);await refreshMasters()};$('projectSelect').onchange=async e=>{current=(await all('projects')).find(x=>x.id===Number(e.target.value));render()};$('newProject').onclick=async()=>{let name=prompt('輸入新專案名稱：');if(name?.trim()){let id=await put('projects',{name:name.trim(),progress:[],materials:[],labor:[]});current={id,name:name.trim(),progress:[],materials:[],labor:[]};await refreshProjects()}};
 function form(id,fn){$(id).onsubmit=async e=>{e.preventDefault();await fn(Object.fromEntries(new FormData(e.target)));e.target.reset()}}form('progressForm',async o=>{o.planned=+o.planned;o.actual=+o.actual;current.progress.push(o);await saveProject()});form('materialForm',async o=>{let p=+o.price;current.materials.push({name:o.name,unit:o.unit,qty:+o.qty,budget:p,actual:p});await saveProject()});form('laborForm',async o=>{let p=+o.price;current.labor.push({name:o.name,task:o.task,hours:+o.hours,budget:p,actual:p});await saveProject()});form('masterMaterialForm',async o=>{await put('materialMasters',{name:o.name,unit:o.unit,price:+o.price});await refreshMasters()});form('masterLaborForm',async o=>{await put('laborMasters',{name:o.name,unit:o.unit,price:+o.price});await refreshMasters()});$('materialPick').onchange=e=>{let x=masters.materials.find(x=>x.id===+e.target.value);if(x){$('materialName').value=x.name;$('materialUnit').value=x.unit;$('materialPrice').value=x.price}};$('laborPick').onchange=e=>{let x=masters.labor.find(x=>x.id===+e.target.value);if(x){$('laborName').value=x.name;$('laborPrice').value=x.price}};$('exportBtn').onclick=async()=>{let data={projects:await all('projects'),materialMasters:await all('materialMasters'),laborMasters:await all('laborMasters')},a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='工程管理資料庫備份.json';a.click();URL.revokeObjectURL(a.href)};$('deleteProject').onclick=async()=>{if(confirm(`確定刪除「${current.name}」？`)){await remove('projects',current.id);let ps=await all('projects');if(!ps.length)await put('projects',{name:'範例工程專案',progress:[],materials:[],labor:[]});current=null;await refreshProjects()}};document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab,.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.page).classList.add('active')});init();
+</script><script>
+/* 每日工程排程與實際成本：擴充既有 IndexedDB 專案資料。 */
+const originalRender=render;
+function total(){
+  current.daily??=[];
+  const planMaterial=current.daily.reduce((s,x)=>s+x.plannedMaterial,0);
+  const actualMaterial=current.daily.reduce((s,x)=>s+x.actualMaterial,0);
+  const planLabor=current.daily.reduce((s,x)=>s+x.plannedLabor,0);
+  const actualLabor=current.daily.reduce((s,x)=>s+x.actualLabor,0);
+  const mb=current.materials.reduce((s,x)=>s+x.qty*x.budget,0)+planMaterial;
+  const ma=current.materials.reduce((s,x)=>s+x.qty*x.actual,0)+actualMaterial;
+  const lb=current.labor.reduce((s,x)=>s+x.hours*x.budget,0)+planLabor;
+  const la=current.labor.reduce((s,x)=>s+x.hours*x.actual,0)+actualLabor;
+  return {mb,ma,lb,la,b:mb+lb,a:ma+la};
+}
+function render(){
+  originalRender();
+  if(!current)return;
+  current.daily??=[];
+  const tasks=current.progress.map(x=>x.name);
+  const option=tasks.length?tasks.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join(''):'<option value="">請先建立工程項目</option>';
+  $('dailyPlanTask').innerHTML=option;
+  $('dailyActualTask').innerHTML=option;
+  $('dailyPlanTask').disabled=!tasks.length;
+  $('dailyActualTask').disabled=!tasks.length;
+  $('dailyPlanForm').querySelector('button').disabled=!tasks.length;
+  $('dailyActualForm').querySelector('button').disabled=!tasks.length;
+  const rows=[...current.daily].sort((a,b)=>a.date.localeCompare(b.date));
+  $('dailyBody').innerHTML=rows.length?rows.map(x=>{
+    const i=current.daily.indexOf(x), planned=x.plannedMaterial+x.plannedLabor, actual=x.actualMaterial+x.actualLabor;
+    return `<tr><td>${x.date}</td><td>${esc(x.task)}</td><td>${esc(x.trade||'未填寫')}</td><td class="num">${x.plannedPeople??0}</td><td class="num">${x.actualPeople??0}</td><td class="num">${fmt(x.plannedMaterial)}</td><td class="num">${fmt(x.plannedLabor)}</td><td class="num">${fmt(x.actualMaterial)}</td><td class="num">${fmt(x.actualLabor)}</td><td class="num">${diff(planned-actual)}</td><td><button class="danger" onclick="delDetail('daily',${i})">刪除</button></td></tr>`;
+  }).join(''):empty(11);
+}
+$('newProject').onclick=async()=>{
+  const name=prompt('輸入新專案名稱：');
+  if(name?.trim()){
+    const p={name:name.trim(),progress:[],materials:[],labor:[],daily:[]};
+    const id=await put('projects',p); current={...p,id}; await refreshProjects();
+  }
+};
+form('dailyPlanForm',async o=>{
+  current.daily??=[];
+  const row=current.daily.find(x=>x.date===o.date&&x.task===o.task&&x.trade===o.trade);
+  if(row){row.plannedPeople=+o.people;row.plannedMaterial=+o.material;row.plannedLabor=+o.labor;}
+  else current.daily.push({date:o.date,task:o.task,trade:o.trade,plannedPeople:+o.people,actualPeople:0,plannedMaterial:+o.material,plannedLabor:+o.labor,actualMaterial:0,actualLabor:0});
+  await saveProject();
+});
+form('dailyActualForm',async o=>{
+  current.daily??=[];
+  const row=current.daily.find(x=>x.date===o.date&&x.task===o.task&&x.trade===o.trade);
+  if(row){row.actualPeople=+o.people;row.actualMaterial=+o.material;row.actualLabor=+o.labor;}
+  else current.daily.push({date:o.date,task:o.task,trade:o.trade,plannedPeople:0,actualPeople:+o.people,plannedMaterial:0,plannedLabor:0,actualMaterial:+o.material,actualLabor:+o.labor});
+  await saveProject();
+});
+</script><script>
+/* 人工成本統一以日薪 × 出工天數計算；保留舊工時欄位的讀取相容性。 */
+const dailyCostRender=render;
+function render(){
+  if(current?.labor) current.labor.forEach(x=>{ x.hours=(x.days??x.hours??0)*(x.people??1); });
+  dailyCostRender();
+  if(!current)return;
+  $('laborBody').innerHTML=current.labor.length?current.labor.map((x,i)=>{
+    const days=x.days??x.hours??0, people=x.people??1, hours=x.dailyHours??8;
+    const b=days*people*x.budget,a=days*people*x.actual,period=x.start&&x.end?`${x.start} ～ ${x.end}`:'舊資料';
+    return `<tr><td>${esc(x.name)}</td><td>${esc(x.task)}</td><td>${period}</td><td class="num">${people}</td><td class="num">${days}</td><td class="num">${hours}</td><td class="num">${fmt(x.budget)}</td><td class="num">${fmt(b)}</td><td class="num">${fmt(x.actual)}</td><td class="num">${fmt(a)}</td><td class="num">${diff(b-a)}</td><td><button class="danger" onclick="delDetail('labor',${i})">刪除</button></td></tr>`;
+  }).join(''):empty(12);
+}
+function total(){
+  current.daily??=[];
+  const planMaterial=current.daily.reduce((s,x)=>s+x.plannedMaterial,0);
+  const actualMaterial=current.daily.reduce((s,x)=>s+x.actualMaterial,0);
+  const planLabor=current.daily.reduce((s,x)=>s+x.plannedLabor,0);
+  const actualLabor=current.daily.reduce((s,x)=>s+x.actualLabor,0);
+  const mb=current.materials.reduce((s,x)=>s+x.qty*x.budget,0)+planMaterial;
+  const ma=current.materials.reduce((s,x)=>s+x.qty*x.actual,0)+actualMaterial;
+  const lb=current.labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.budget,0)+planLabor;
+  const la=current.labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.actual,0)+actualLabor;
+  return {mb,ma,lb,la,b:mb+lb,a:ma+la};
+}
+form('laborForm',async o=>{
+  const start=new Date(`${o.start}T00:00:00`),end=new Date(`${o.end}T00:00:00`);
+  const days=Math.round((end-start)/86400000)+1;
+  if(!Number.isFinite(days)||days<1){alert('結束日期必須等於或晚於開始日期。');return;}
+  const p=+o.price;
+  current.labor.push({name:o.name,task:o.task,start:o.start,end:o.end,days,people:+o.people,dailyHours:+o.dailyHours,budget:p,actual:p});
+  await saveProject();
+});
+</script><script>
+/* 單一畫面更新流程：避免擴充功能彼此覆蓋，所有新增項目立即重繪。 */
+var projectTotals=function(){
+  const daily=current.daily||[];
+  const mb=current.materials.reduce((s,x)=>s+x.qty*x.budget,0)+daily.reduce((s,x)=>s+(x.plannedMaterial||0),0);
+  const ma=current.materials.reduce((s,x)=>s+x.qty*x.actual,0)+daily.reduce((s,x)=>s+(x.actualMaterial||0),0);
+  const lb=current.labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.budget,0)+daily.reduce((s,x)=>s+(x.plannedLabor||0),0);
+  const la=current.labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.actual,0)+daily.reduce((s,x)=>s+(x.actualLabor||0),0);
+  return {mb,ma,lb,la,b:mb+lb,a:ma+la};
+};
+render=function(){
+  if(!current)return;
+  current.progress??=[];current.materials??=[];current.labor??=[];current.daily??=[];
+  const t=projectTotals(),progress=current.progress.length?current.progress.reduce((s,x)=>s+(+x.actual||0),0)/current.progress.length:0;
+  $('overall').textContent=progress.toFixed(1)+'%';$('overallBar').style.width=progress+'%';$('budget').textContent=fmt(t.b);$('actual').textContent=fmt(t.a);$('costRate').textContent=t.b?`已使用 ${(t.a/t.b*100).toFixed(1)}% 預算`:'尚無預算資料';$('variance').innerHTML=diff(t.b-t.a);$('varianceNote').textContent=t.b-t.a<0?'已超出預算':'尚在預算內';
+  $('progressBody').innerHTML=current.progress.length?current.progress.map((x,i)=>`<tr><td>${esc(x.name)}</td><td>${x.start}</td><td>${x.end}</td><td class="num">${x.planned}%</td><td class="bar"><span><b style="width:${x.actual}%"></b></span> ${x.actual}%</td><td class="num">${x.actual-x.planned}%</td><td><button class="danger" onclick="delDetail('progress',${i})">刪除</button></td></tr>`).join(''):empty(7);
+  const tasks=current.progress.map(x=>x.name),options=tasks.length?tasks.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join(''):'<option value="">請先建立工程項目</option>';
+  $('dailyPlanTask').innerHTML=options;$('dailyActualTask').innerHTML=options;$('dailyPlanTask').disabled=!tasks.length;$('dailyActualTask').disabled=!tasks.length;$('dailyPlanForm').querySelector('button').disabled=!tasks.length;$('dailyActualForm').querySelector('button').disabled=!tasks.length;
+  const daily=[...current.daily].sort((a,b)=>a.date.localeCompare(b.date));$('dailyBody').innerHTML=daily.length?daily.map(x=>{const i=current.daily.indexOf(x),p=(x.plannedMaterial||0)+(x.plannedLabor||0),a=(x.actualMaterial||0)+(x.actualLabor||0);return `<tr><td>${x.date}</td><td>${esc(x.task)}</td><td>${esc(x.trade||'未填寫')}</td><td class="num">${x.plannedPeople??0}</td><td class="num">${x.actualPeople??0}</td><td class="num">${fmt(x.plannedMaterial)}</td><td class="num">${fmt(x.plannedLabor)}</td><td class="num">${fmt(x.actualMaterial)}</td><td class="num">${fmt(x.actualLabor)}</td><td class="num">${diff(p-a)}</td><td><button class="danger" onclick="delDetail('daily',${i})">刪除</button></td></tr>`}).join(''):empty(11);
+  $('materialBody').innerHTML=current.materials.length?current.materials.map((x,i)=>{const b=x.qty*x.budget,a=x.qty*x.actual;return `<tr><td>${esc(x.name)}</td><td>${esc(x.unit)}</td><td class="num">${x.qty}</td><td class="num">${fmt(x.budget)}</td><td class="num">${fmt(b)}</td><td class="num">${fmt(x.actual)}</td><td class="num">${fmt(a)}</td><td class="num">${diff(b-a)}</td><td><button class="danger" onclick="delDetail('materials',${i})">刪除</button></td></tr>`}).join(''):empty(9);
+  $('laborBody').innerHTML=current.labor.length?current.labor.map((x,i)=>{const d=x.days??x.hours??0,n=x.people??1,h=x.dailyHours??8,b=d*n*x.budget,a=d*n*x.actual,period=x.start&&x.end?`${x.start} ～ ${x.end}`:'舊資料';return `<tr><td>${esc(x.name)}</td><td>${esc(x.task)}</td><td>${period}</td><td class="num">${n}</td><td class="num">${d}</td><td class="num">${h}</td><td class="num">${fmt(x.budget)}</td><td class="num">${fmt(b)}</td><td class="num">${fmt(x.actual)}</td><td class="num">${fmt(a)}</td><td class="num">${diff(b-a)}</td><td><button class="danger" onclick="delDetail('labor',${i})">刪除</button></td></tr>`}).join(''):empty(12);
+  $('costSummary').innerHTML=[['物料（含每日）',t.mb,t.ma],['人工（含每日）',t.lb,t.la],['合計',t.b,t.a]].map(x=>`<div class="cost-row"><div><b>${x[0]}</b><br><span class="sub">預算 ${fmt(x[1])} ｜ 實際 ${fmt(x[2])}</span></div><div>${diff(x[1]-x[2])}</div></div>`).join('');
+};
+</script><script>
+/* 工程項目點選報表與物料歸屬。 */
+var selectedTaskIndex=null;
+var taskReportRender=render;
+window.selectTask=function(index){selectedTaskIndex=index;render();};
+render=function(){
+  taskReportRender();
+  if(!current)return;
+  const taskOptions=current.progress.length?current.progress.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join(''):'<option value="">請先建立工程項目</option>';
+  $('materialTask').innerHTML=taskOptions;$('materialTask').disabled=!current.progress.length;$('materialForm').querySelector('button').disabled=!current.progress.length;
+  Array.from($('progressBody').querySelectorAll('tr')).forEach((row,index)=>{row.style.cursor='pointer';row.onclick=e=>{if(e.target.tagName!=='BUTTON')selectTask(index)};});
+  if(selectedTaskIndex===null||!current.progress[selectedTaskIndex]){ $('taskDetail').innerHTML='<h2>工程項目報表</h2><p class="hint">請在上方工程進度表點選一個工程項目。</p>';return; }
+  const item=current.progress[selectedTaskIndex],name=item.name;
+  const material=current.materials.filter(x=>x.task===name),labor=current.labor.filter(x=>x.task===name),daily=current.daily.filter(x=>x.task===name);
+  const mb=material.reduce((s,x)=>s+x.qty*x.budget,0)+daily.reduce((s,x)=>s+(x.plannedMaterial||0),0),ma=material.reduce((s,x)=>s+x.qty*x.actual,0)+daily.reduce((s,x)=>s+(x.actualMaterial||0),0);
+  const lb=labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.budget,0)+daily.reduce((s,x)=>s+(x.plannedLabor||0),0),la=labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.actual,0)+daily.reduce((s,x)=>s+(x.actualLabor||0),0);
+  $('taskDetail').innerHTML=`<h2>${esc(name)}：進度與成本報表</h2><div class="grid"><div class="card"><div class="label">預計進度</div><div class="value">${item.planned}%</div></div><div class="card"><div class="label">實際進度</div><div class="value">${item.actual}%</div></div><div class="card"><div class="label">物料成本</div><div class="sub">預算 ${fmt(mb)}</div><div class="sub">實際 ${fmt(ma)}</div></div><div class="card"><div class="label">人工成本</div><div class="sub">預算 ${fmt(lb)}</div><div class="sub">實際 ${fmt(la)}</div></div></div><div class="cost-row"><b>本項目總預算</b><span>${fmt(mb+lb)}</span></div><div class="cost-row"><b>本項目實際成本</b><span>${fmt(ma+la)}</span></div><div class="cost-row"><b>預算差異</b><span>${diff(mb+lb-ma-la)}</span></div>`;
+};
+form('materialForm',async o=>{const p=+o.price;current.materials.push({task:o.task,name:o.name,unit:o.unit,qty:+o.qty,budget:p,actual:p});await saveProject();});
+</script><script>
+/* Excel 匯入／匯出：使用多工作表保存完整工程資料庫。 */
+function excelRows(projects,mastersData){
+  const names=new Map(projects.map(p=>[p.id,p.name]));
+  return {
+    '專案':projects.map(p=>({'專案名稱':p.name})),
+    '工程進度':projects.flatMap(p=>p.progress.map(x=>({'專案名稱':p.name,'所屬工程項目':x.parent||'','工程項目':x.name,'開始日期':x.start,'預計完工':x.end,'預計進度':x.planned,'實際進度':x.actual}))),
+    '物料成本':projects.flatMap(p=>p.materials.map(x=>({'專案名稱':p.name,'施工工項':x.task||'','物料名稱':x.name,'單位':x.unit,'數量':x.qty,'預算單價':x.budget,'實際單價':x.actual}))),
+    '人工成本':projects.flatMap(p=>p.labor.map(x=>({'專案名稱':p.name,'施工工項':x.task,'工種':x.name,'開始日期':x.start||'','結束日期':x.end||'','出工天數':x.days??x.hours??0,'出工人數':x.people??1,'每日工時':x.dailyHours??8,'預算日薪':x.budget,'實際日薪':x.actual}))),
+    '每日成本':projects.flatMap(p=>(p.daily||[]).map(x=>({'專案名稱':p.name,'日期':x.date,'施工工項':x.task,'工種':x.trade||'','預計人數':x.plannedPeople??0,'實際人數':x.actualPeople??0,'預計物料費':x.plannedMaterial||0,'預計人工費':x.plannedLabor||0,'實際物料費':x.actualMaterial||0,'實際人工費':x.actualLabor||0}))),
+    '物料主檔':mastersData.materials.map(x=>({'物料名稱':x.name,'單位':x.unit,'預設單價':x.price})),
+    '人工主檔':mastersData.labor.map(x=>({'工種':x.name,'單位':'日','預設日薪':x.price}))
+  };
+}
+$('excelExportBtn').onclick=async()=>{
+  if(!window.XLSX){alert('Excel 模組尚未載入，請確認網路連線後再試。');return;}
+  const projects=await all('projects'), mastersData={materials:await all('materialMasters'),labor:await all('laborMasters')},wb=XLSX.utils.book_new();
+  Object.entries(excelRows(projects,mastersData)).forEach(([name,rows])=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),name));
+  XLSX.writeFile(wb,'工程專案管理資料庫.xlsx');
+};
+$('excelImportBtn').onclick=()=>$('excelImportInput').click();
+$('excelImportInput').onchange=async e=>{
+  const file=e.target.files[0];if(!file)return;
+  if(!window.XLSX){alert('Excel 模組尚未載入，請確認網路連線後再試。');return;}
+  if(!confirm('匯入 Excel 會覆寫目前本機資料庫，確定繼續嗎？')){e.target.value='';return;}
+  try{
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),rows=name=>wb.Sheets[name]?XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:''}):[];
+    let projectsRows=rows('專案'),progressRows=rows('工程進度'),materialRows=rows('物料成本'),laborRows=rows('人工成本'),dailyRows=rows('每日成本');
+    /* 支援電器 BOQ：欄位 A=工程分類、B=施工工項、D=數量、E=單位、F/G=材料、H/I=施工。 */
+    if(!projectsRows.length&&wb.Sheets['工作表1']){
+      const boq=XLSX.utils.sheet_to_json(wb.Sheets['工作表1'],{header:1,defval:''});
+      const projectName=String(boq[0]?.[0]||'電氣工程').replace(/^Work Item:\s*/i,'').trim()||'電氣工程';
+      projectsRows=[{'專案名稱':projectName}];progressRows=[];materialRows=[];laborRows=[];dailyRows=[];
+      let task='電氣工程',taskNames=new Set();
+      boq.slice(5).forEach(row=>{
+        const code=String(row[0]??'').trim(),description=String(row[1]??'').trim(),quantity=Number(row[3])||0,unit=String(row[4]??'').trim();
+        const materialRate=Number(row[5])||0,materialTotal=Number(row[6])||0,constructionRate=Number(row[7])||0,constructionTotal=Number(row[8])||0;
+        if(/^[A-Z]$/.test(code)&&description){task=description.replace(/\s+/g,' ').slice(0,100);if(!taskNames.has(task)){progressRows.push({'專案名稱':projectName,'所屬工程項目':'','工程項目':task,'開始日期':'','預計完工':'','預計進度':0,'實際進度':0});taskNames.add(task)};return;}
+        if(!code||!quantity)return;
+        const itemName=(description||`${task}－品項 ${code}`).replace(/\s+/g,' ').slice(0,120);
+        progressRows.push({'專案名稱':projectName,'所屬工程項目':task,'工程項目':itemName,'開始日期':'','預計完工':'','預計進度':0,'實際進度':0});
+        if(materialRate||materialTotal)materialRows.push({'專案名稱':projectName,'工程項目':itemName,'物料名稱':itemName,'單位':unit,'數量':quantity,'預算單價':materialRate||materialTotal/quantity,'實際單價':materialRate||materialTotal/quantity});
+        if(constructionRate||constructionTotal)laborRows.push({'專案名稱':projectName,'工程項目':itemName,'工種':itemName,'開始日期':'','結束日期':'','出工天數':1,'出工人數':1,'每日工時':8,'預算日薪':constructionTotal||constructionRate*quantity,'實際日薪':constructionTotal||constructionRate*quantity});
+      });
+    }
+    if(!projectsRows.length)throw new Error('找不到「專案」工作表或其資料。');
+    for(const store of ['projects','materialMasters','laborMasters']) await new Promise((ok,no)=>{const r=tx(store,'readwrite').clear();r.onsuccess=()=>ok();r.onerror=()=>no(r.error)});
+    const imported=new Map();
+    for(const r of projectsRows){const p={name:String(r['專案名稱']).trim(),progress:[],materials:[],labor:[],daily:[]};if(p.name){p.id=await put('projects',p);imported.set(p.name,p)}}
+    for(const r of progressRows){const p=imported.get(String(r['專案名稱']));if(p)p.progress.push({name:String(r['工程項目']),parent:String(r['所屬工程項目']||''),start:String(r['開始日期']),end:String(r['預計完工']),planned:+r['預計進度']||0,actual:+r['實際進度']||0})}
+    for(const r of materialRows){const p=imported.get(String(r['專案名稱']));if(p)p.materials.push({task:String(r['施工工項']||r['工程項目']||''),name:String(r['物料名稱']),unit:String(r['單位']),qty:+r['數量']||0,budget:+r['預算單價']||0,actual:+r['實際單價']||0})}
+    for(const r of laborRows){const p=imported.get(String(r['專案名稱']));if(p)p.labor.push({task:String(r['施工工項']||r['工程項目']||''),name:String(r['工種']),start:String(r['開始日期']),end:String(r['結束日期']),days:+r['出工天數']||0,people:+r['出工人數']||1,dailyHours:+r['每日工時']||8,budget:+r['預算日薪']||0,actual:+r['實際日薪']||0})}
+    for(const r of dailyRows){const p=imported.get(String(r['專案名稱']));if(p)p.daily.push({date:String(r['日期']),task:String(r['施工工項']||r['工程項目']||''),trade:String(r['工種']),plannedPeople:+r['預計人數']||0,actualPeople:+r['實際人數']||0,plannedMaterial:+r['預計物料費']||0,plannedLabor:+r['預計人工費']||0,actualMaterial:+r['實際物料費']||0,actualLabor:+r['實際人工費']||0})}
+    for(const p of imported.values())await put('projects',p);
+    for(const r of rows('物料主檔'))await put('materialMasters',{name:String(r['物料名稱']),unit:String(r['單位']),price:+r['預設單價']||0});
+    for(const r of rows('人工主檔'))await put('laborMasters',{name:String(r['工種']),unit:'日',price:+r['預設日薪']||0});
+    current=null;selectedTaskIndex=null;await refreshProjects();await refreshMasters();alert('Excel 匯入完成。');
+  }catch(err){alert('Excel 匯入失敗：'+err.message)}finally{e.target.value=''}
+};
+</script><script>
+/* 工程項目與施作工項階層式進度表。 */
+var collapsedWorkGroups=new Set();
+var hierarchyRender=render;
+window.toggleWorkGroup=function(index){const key=current.progress[index].name;collapsedWorkGroups.has(key)?collapsedWorkGroups.delete(key):collapsedWorkGroups.add(key);render();};
+render=function(){
+  hierarchyRender();
+  if(!current)return;
+  const groups=current.progress.filter(x=>!x.parent),leaves=current.progress.filter(x=>x.parent),parentOptions='<option value="">建立為工程項目</option>'+groups.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('');
+  $('progressParent').innerHTML=parentOptions;
+  const workOptions=(leaves.length?leaves:groups).map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('')||'<option value="">請先建立施作工項</option>';
+  $('dailyPlanTask').innerHTML=workOptions;$('dailyActualTask').innerHTML=workOptions;$('materialTask').innerHTML=workOptions;
+  const canAssign=leaves.length||groups.length;$('dailyPlanTask').disabled=!canAssign;$('dailyActualTask').disabled=!canAssign;$('materialTask').disabled=!canAssign;$('dailyPlanForm').querySelector('button').disabled=!canAssign;$('dailyActualForm').querySelector('button').disabled=!canAssign;$('materialForm').querySelector('button').disabled=!canAssign;
+  const html=[];
+  groups.forEach(group=>{
+    const groupIndex=current.progress.indexOf(group),children=leaves.filter(x=>x.parent===group.name),closed=collapsedWorkGroups.has(group.name);
+    html.push(`<tr style="cursor:pointer" onclick="toggleWorkGroup(${groupIndex})"><td><button type="button" class="secondary">${closed?'＋':'−'}</button> <b>${esc(group.name)}</b></td><td>${group.start||''}</td><td>${group.end||''}</td><td class="num">${group.planned}%</td><td>${group.actual}%</td><td class="num">${group.actual-group.planned}%</td><td><button class="danger" onclick="event.stopPropagation();delDetail('progress',${groupIndex})">刪除</button></td></tr>`);
+    if(!closed)children.forEach(child=>{const index=current.progress.indexOf(child);html.push(`<tr style="cursor:pointer" onclick="selectTask(${index})"><td>　└ ${esc(child.name)}</td><td>${child.start||''}</td><td>${child.end||''}</td><td class="num">${child.planned}%</td><td class="bar"><span><b style="width:${child.actual}%"></b></span> ${child.actual}%</td><td class="num">${child.actual-child.planned}%</td><td><button class="danger" onclick="event.stopPropagation();delDetail('progress',${index})">刪除</button></td></tr>`)});
+  });
+  $('progressBody').innerHTML=html.length?html.join(''):empty(7);
+};
+form('progressForm',async o=>{current.progress.push({name:o.name,parent:o.parent||'',start:o.start,end:o.end,planned:+o.planned,actual:+o.actual});await saveProject();});
+</script><script>
+/* 每日工作報表：匯出範本，並將日報合併至目前專案。 */
+function dailyReportRows(){
+  const works=(current?.progress||[]).filter(x=>x.parent);
+  const fallback=(current?.progress||[]).filter(x=>!x.parent);
+  const today=new Date().toISOString().slice(0,10);
+  return (works.length?works:fallback).map(x=>({'日期':today,'施工工項':x.name,'累計實際進度 (%)':'','實際物料費':'','實際人工費':'','工種':'','出工人數':'','備註':''}));
+}
+$('dailyTemplateBtn').onclick=()=>{
+  if(!window.XLSX){alert('Excel 模組尚未載入，請確認網路連線後再試。');return;}
+  const wb=XLSX.utils.book_new(),ws=XLSX.utils.json_to_sheet(dailyReportRows());
+  XLSX.utils.book_append_sheet(wb,ws,'每日工作報表');XLSX.writeFile(wb,`${current?.name||'工程'}_每日工作報表.xlsx`);
+};
+var fullDatabaseImportHandler=$('excelImportInput').onchange;
+$('excelImportInput').onchange=async e=>{
+  const file=e.target.files[0];if(!file)return;
+  if(!window.XLSX){alert('Excel 模組尚未載入，請確認網路連線後再試。');return;}
+  let wb;try{wb=XLSX.read(await file.arrayBuffer(),{type:'array'})}catch(err){alert('無法讀取 Excel：'+err.message);e.target.value='';return;}
+  if(!wb.Sheets['每日工作報表']){await fullDatabaseImportHandler(e);return;}
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets['每日工作報表'],{defval:''});
+  if(!rows.length){alert('每日工作報表沒有可匯入的資料。');e.target.value='';return;}
+  if(!current){alert('請先選擇要更新的專案。');e.target.value='';return;}
+  if(!confirm(`將 ${rows.length} 筆每日工作報表匯入「${current.name}」？`)){e.target.value='';return;}
+  let updated=0,missing=[];current.daily??=[];
+  for(const r of rows){
+    const date=String(r['日期']||'').trim(),task=String(r['施工工項']||'').trim();if(!date||!task)continue;
+    const work=current.progress.find(x=>x.name===task);if(!work){missing.push(task);continue;}
+    const trade=String(r['工種']||'').trim()||'日報填報';
+    const row=current.daily.find(x=>x.date===date&&x.task===task&&x.trade===trade);
+    const actualMaterial=Number(r['實際物料費'])||0,actualLabor=Number(r['實際人工費'])||0,people=Number(r['出工人數'])||0;
+    if(row){row.actualMaterial=actualMaterial;row.actualLabor=actualLabor;row.actualPeople=people;}
+    else current.daily.push({date,task,trade,plannedPeople:0,actualPeople:people,plannedMaterial:0,plannedLabor:0,actualMaterial,actualLabor});
+    const actualProgress=Number(r['累計實際進度 (%)']);if(Number.isFinite(actualProgress)&&r['累計實際進度 (%)']!=='')work.actual=Math.max(0,Math.min(100,actualProgress));
+    updated++;
+  }
+  await saveProject();e.target.value='';
+  alert(`每日工作報表已匯入 ${updated} 筆。${missing.length?` 未找到施工工項：${[...new Set(missing)].join('、')}`:''}`);
+};
 </script></body></html>
