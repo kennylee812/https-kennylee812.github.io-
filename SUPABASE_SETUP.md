@@ -11,7 +11,16 @@
 
 ## 密碼重設
 
-登入頁的「忘記密碼」會要求 Email，並把 recovery link 明確導回管理系統。使用者點擊信件連結後，管理系統會顯示新密碼表單。若連結被導向 Supabase API 根網址，請重新確認 Authentication → URL Configuration，並從管理系統重新發送一封密碼重設信。
+為避免郵件安全掃描器提前消耗單次 recovery link，請到 **Authentication → Email Templates → Reset Password**，將郵件內容改成只顯示 OTP 驗證碼，不要使用 `{{ .ConfirmationURL }}`：
+
+```html
+<h2>重設工程專案管理系統密碼</h2>
+<p>請回到管理系統並輸入以下一次性驗證碼：</p>
+<p style="font-size:28px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
+<p><a href="https://kennylee812.github.io/https-kennylee812.github.io-/%E5%B7%A5%E7%A8%8B%E5%B0%88%E6%A1%88%E7%AE%A1%E7%90%86%E7%B3%BB%E7%B5%B1.html">回到管理系統</a></p>
+```
+
+使用者在登入頁點「忘記密碼」後，系統會顯示 Email、驗證碼與新密碼欄位，並以 Supabase `verifyOtp` 的 `recovery` 類型驗證。原有 recovery link session 仍受到支援，但正式郵件建議只使用手動 OTP。
 
 ## 安全模型
 
