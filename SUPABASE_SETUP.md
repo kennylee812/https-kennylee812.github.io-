@@ -9,6 +9,10 @@
 5. 部署前端後，使用兩個不同 Email 註冊並完成信箱驗證。
 6. 專案擁有者可在網站右上角以 Email 加入已註冊使用者。
 
+## 密碼重設
+
+登入頁的「忘記密碼」會要求 Email，並把 recovery link 明確導回管理系統。使用者點擊信件連結後，管理系統會顯示新密碼表單。若連結被導向 Supabase API 根網址，請重新確認 Authentication → URL Configuration，並從管理系統重新發送一封密碼重設信。
+
 ## 安全模型
 
 - 前端只使用 Publishable key；不得加入 secret/service-role key。
