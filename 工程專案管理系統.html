@@ -192,7 +192,7 @@ $('excelImportInput').onchange=async e=>{
       });
     }
     if(!projectsRows.length)throw new Error('找不到「專案」工作表或其資料。');
-    for(const store of ['projects','materialMasters','laborMasters']) await new Promise((ok,no)=>{const r=tx(store,'readwrite').clear();r.onsuccess=()=>ok();r.onerror=()=>no(r.error)});
+    for(const store of ['projects','materialMasters','laborMasters']) await clearStore(store);
     const imported=new Map();
     for(const r of projectsRows){const p={name:String(r['專案名稱']).trim(),progress:[],materials:[],labor:[],daily:[]};if(p.name){p.id=await put('projects',p);imported.set(p.name,p)}}
     for(const r of progressRows){const p=imported.get(String(r['專案名稱']));if(p)p.progress.push({name:String(r['工程項目']),parent:String(r['所屬工程項目']||''),start:String(r['開始日期']),end:String(r['預計完工']),planned:+r['預計進度']||0,actual:+r['實際進度']||0})}
@@ -605,4 +605,4 @@ var costPriceDefaultsRender=render;
 render=function(){costPriceDefaultsRender();setCostPriceDefaults();};
 setCostPriceDefaults();
 document.addEventListener('reset',()=>setTimeout(setCostPriceDefaults,0));
-</script></body></html>
+</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./supabase-backend.js"></script></body></html>
