@@ -15,7 +15,7 @@
   style.textContent=`
     #authGate{position:fixed;inset:0;z-index:9999;background:#f6f8f9;display:grid;place-items:center;padding:20px}
     #authGate[hidden]{display:none}.auth-card{width:min(430px,100%);background:#fff;border:1px solid #d8e3e7;border-radius:14px;padding:24px;box-shadow:0 18px 48px #19324a20}
-    .auth-card h2{font-size:23px}.auth-card label{display:block;margin:12px 0}.auth-card input{margin-top:5px}.auth-actions{display:flex;gap:8px;flex-wrap:wrap}.auth-message{min-height:24px;color:#637583;margin-top:12px}.auth-message.error{color:#b42318}
+    .auth-card h2{font-size:23px}.auth-card form{display:block}.auth-card form[hidden]{display:none}.auth-card label{display:block;margin:12px 0}.auth-card input{display:block;width:100%;margin-top:5px}.auth-card .auth-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.auth-card .auth-actions button{flex:1 1 110px;white-space:nowrap}.auth-message{min-height:24px;color:#637583;margin-top:12px}.auth-message.error{color:#b42318}
     #accountBar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:#526573}#accountBar button{padding:7px 10px}
   `;
   document.head.appendChild(style);
