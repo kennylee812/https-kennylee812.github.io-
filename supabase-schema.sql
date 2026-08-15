@@ -17,9 +17,6 @@ create table if not exists public.projects (
   created_at timestamptz not null default now()
 );
 
--- Keep existing installations aligned when this schema is run again.
-alter table public.projects alter column owner_id set default auth.uid();
-
 create table if not exists public.project_members (
   project_id bigint not null references public.projects(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -56,6 +53,28 @@ begin
   values (new.id, coalesce(new.email, ''), coalesce(new.raw_user_meta_data ->> 'display_name', split_part(coalesce(new.email, ''), '@', 1)))
   on conflict (id) do update set email = excluded.email;
   return new;
+end;
+$$;
+
+create or replace function public.create_project(
+  project_name text,
+  project_data jsonb default '{}'::jsonb
+)
+returns bigint
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  new_project_id bigint;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+  insert into public.projects (name, data, owner_id)
+  values (project_name, project_data, current_user_id)
+  returning id into new_project_id;
+  return new_project_id;
 end;
 $$;
 
@@ -131,7 +150,9 @@ end;
 $$;
 
 revoke all on function public.add_project_member_by_email(bigint, text, text) from public;
+revoke all on function public.create_project(text, jsonb) from public;
 grant execute on function public.add_project_member_by_email(bigint, text, text) to authenticated;
+grant execute on function public.create_project(text, jsonb) to authenticated;
 grant execute on function public.can_access_project(bigint) to authenticated;
 grant execute on function public.can_edit_project(bigint) to authenticated;
 
