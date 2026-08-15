@@ -346,9 +346,10 @@ window.delDetail=async function(type,index){
 /* 明確區分新增工程項目與新增施作工項。 */
 function syncProgressType(){
   const isWork=$('progressType').value==='work';
-  $('progressParent').disabled=!isWork;
-  $('progressParent').options[0].textContent=isWork?'選擇所屬工程項目':'不需選擇（建立工程項目）';
-  if(!isWork)$('progressParent').value='';
+  const parent=$('progressParent');
+  parent.disabled=!isWork;
+  if(parent.options[0])parent.options[0].textContent=isWork?'選擇所屬工程項目':'不需選擇（建立工程項目）';
+  if(!isWork)parent.value='';
 }
 $('progressType').onchange=syncProgressType;
 syncProgressType();
