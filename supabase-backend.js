@@ -24,7 +24,7 @@
 
   const gate=document.createElement('section');
   gate.id='authGate';
-  gate.innerHTML=`<div class="auth-card"><h2>工程專案管理系統</h2><p class="hint">登入後使用 Supabase 共用專案資料。</p><form id="authForm"><label>Email<input name="email" type="email" autocomplete="email" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" minlength="6" required></label><div class="auth-actions"><button type="submit">登入</button><button type="button" id="signUpBtn" class="secondary">建立帳號</button><button type="button" id="forgotPasswordBtn" class="secondary">忘記密碼</button></div></form><form id="recoveryForm" hidden><p class="hint">輸入重設信中的驗證碼，再設定至少 6 個字元的新密碼。</p><label id="recoveryEmailRow">Email<input name="email" type="email" autocomplete="email" required></label><label id="recoveryTokenRow">驗證碼<input name="token" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="10" required></label><label>新密碼<input name="password" type="password" autocomplete="new-password" minlength="6" required></label><label>再次輸入<input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required></label><div class="auth-actions"><button type="submit">驗證並更新密碼</button><button type="button" id="cancelRecoveryBtn" class="secondary">取消</button></div></form><p id="authMessage" class="auth-message"></p></div>`;
+  gate.innerHTML=`<div class="auth-card"><h2>工程專案管理系統</h2><p class="hint">請使用管理員提供的帳號及密碼登入。</p><form id="authForm"><label>Email<input name="email" type="email" autocomplete="email" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" minlength="6" required></label><div class="auth-actions"><button type="submit">登入</button><button type="button" id="forgotPasswordBtn" class="secondary">忘記密碼</button></div></form><form id="recoveryForm" hidden><p class="hint">輸入重設信中的驗證碼，再設定至少 6 個字元的新密碼。</p><label id="recoveryEmailRow">Email<input name="email" type="email" autocomplete="email" required></label><label id="recoveryTokenRow">驗證碼<input name="token" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="10" required></label><label>新密碼<input name="password" type="password" autocomplete="new-password" minlength="6" required></label><label>再次輸入<input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required></label><div class="auth-actions"><button type="submit">驗證並更新密碼</button><button type="button" id="cancelRecoveryBtn" class="secondary">取消</button></div></form><p id="authMessage" class="auth-message"></p></div>`;
   document.body.appendChild(gate);
 
   const accountBar=document.createElement('div');
@@ -126,15 +126,6 @@
     const values=Object.fromEntries(new FormData(event.currentTarget));
     const {error}=await client.auth.signInWithPassword({email:values.email.trim(),password:values.password});
     if(error)message(error.message,true);else message('登入成功');
-  };
-  document.getElementById('signUpBtn').onclick=async()=>{
-    const form=document.getElementById('authForm');
-    if(!form.reportValidity())return;
-    const values=Object.fromEntries(new FormData(form));message('建立帳號中…');
-    const {data,error}=await client.auth.signUp({email:values.email.trim(),password:values.password,options:{emailRedirectTo:location.origin+location.pathname}});
-    if(error)message(error.message,true);
-    else if(data.session)message('帳號已建立並登入。');
-    else message('帳號已建立，請到信箱完成驗證後再登入。');
   };
   document.getElementById('forgotPasswordBtn').onclick=async()=>{
     const email=document.getElementById('authForm').elements.email;
