@@ -10,6 +10,7 @@
   });
   let remoteStarted=false;
   let remoteStarting=false;
+  let activeUserId=null;
 
   const style=document.createElement('style');
   style.textContent=`
@@ -66,6 +67,7 @@
         unwrap(await client.from(table).update(payload).eq('id',value.id));
         return Number(value.id);
       }
+      if(store==='projects')payload.owner_id=activeUserId;
       const rows=unwrap(await client.from(table).insert(payload).select('id').single());
       return Number(rows.id);
     };
@@ -83,8 +85,9 @@
 
   async function startRemote(session){
     if(!session){
-      gate.hidden=false;if(main)main.hidden=true;accountBar.hidden=true;remoteStarted=false;return;
+      gate.hidden=false;if(main)main.hidden=true;accountBar.hidden=true;remoteStarted=false;activeUserId=null;return;
     }
+    activeUserId=session.user.id;
     installRemoteAdapter();
     document.getElementById('accountEmail').textContent=session.user.email||'已登入';
     gate.hidden=true;if(main)main.hidden=false;accountBar.hidden=false;
