@@ -4,6 +4,7 @@
   const SUPABASE_URL='https://mthupxgniuynkflmraem.supabase.co';
   const SUPABASE_PUBLISHABLE_KEY='sb_publishable_N5IdEVdT9motGG2-DLpqOA_rAHkaucF';
   let recoveryRequested=location.hash.includes('type=recovery')||new URLSearchParams(location.search).get('type')==='recovery';
+  let recoverySessionReady=false;
   const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
   });
@@ -23,7 +24,7 @@
 
   const gate=document.createElement('section');
   gate.id='authGate';
-  gate.innerHTML=`<div class="auth-card"><h2>工程專案管理系統</h2><p class="hint">登入後使用 Supabase 共用專案資料。</p><form id="authForm"><label>Email<input name="email" type="email" autocomplete="email" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" minlength="6" required></label><div class="auth-actions"><button type="submit">登入</button><button type="button" id="signUpBtn" class="secondary">建立帳號</button><button type="button" id="forgotPasswordBtn" class="secondary">忘記密碼</button></div></form><form id="recoveryForm" hidden><p class="hint">請設定至少 6 個字元的新密碼。</p><label>新密碼<input name="password" type="password" autocomplete="new-password" minlength="6" required></label><label>再次輸入<input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required></label><div class="auth-actions"><button type="submit">更新密碼</button><button type="button" id="cancelRecoveryBtn" class="secondary">取消</button></div></form><p id="authMessage" class="auth-message"></p></div>`;
+  gate.innerHTML=`<div class="auth-card"><h2>工程專案管理系統</h2><p class="hint">登入後使用 Supabase 共用專案資料。</p><form id="authForm"><label>Email<input name="email" type="email" autocomplete="email" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" minlength="6" required></label><div class="auth-actions"><button type="submit">登入</button><button type="button" id="signUpBtn" class="secondary">建立帳號</button><button type="button" id="forgotPasswordBtn" class="secondary">忘記密碼</button></div></form><form id="recoveryForm" hidden><p class="hint">輸入重設信中的驗證碼，再設定至少 6 個字元的新密碼。</p><label id="recoveryEmailRow">Email<input name="email" type="email" autocomplete="email" required></label><label id="recoveryTokenRow">驗證碼<input name="token" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="10" required></label><label>新密碼<input name="password" type="password" autocomplete="new-password" minlength="6" required></label><label>再次輸入<input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required></label><div class="auth-actions"><button type="submit">驗證並更新密碼</button><button type="button" id="cancelRecoveryBtn" class="secondary">取消</button></div></form><p id="authMessage" class="auth-message"></p></div>`;
   document.body.appendChild(gate);
 
   const accountBar=document.createElement('div');
@@ -97,16 +98,24 @@
     finally{remoteStarting=false;}
   }
 
-  function showRecovery(){
+  function showRecovery(sessionReady=false,email=''){
     recoveryRequested=true;
+    recoverySessionReady=sessionReady;
     gate.hidden=false;if(main)main.hidden=true;accountBar.hidden=true;
     document.getElementById('authForm').hidden=true;
-    document.getElementById('recoveryForm').hidden=false;
-    message('密碼重設連結已驗證，請輸入新密碼。');
+    const form=document.getElementById('recoveryForm');
+    form.hidden=false;
+    form.elements.email.value=email||form.elements.email.value;
+    for(const id of ['recoveryEmailRow','recoveryTokenRow']){
+      const row=document.getElementById(id);row.hidden=sessionReady;
+      row.querySelector('input').required=!sessionReady;
+    }
+    message(sessionReady?'密碼重設連結已驗證，請輸入新密碼。':'請輸入重設信中的驗證碼與新密碼。');
   }
 
   function showLogin(){
     recoveryRequested=false;
+    recoverySessionReady=false;
     document.getElementById('authForm').hidden=false;
     document.getElementById('recoveryForm').hidden=true;
     gate.hidden=false;if(main)main.hidden=true;accountBar.hidden=true;
@@ -132,12 +141,18 @@
     if(!email.reportValidity())return;
     message('正在寄送密碼重設信…');
     const {error}=await client.auth.resetPasswordForEmail(email.value.trim(),{redirectTo:location.origin+location.pathname});
-    if(error)message(error.message,true);else message('密碼重設信已送出，請檢查收件匣與垃圾郵件。');
+    if(error)message(error.message,true);else{showRecovery(false,email.value.trim());message('密碼重設信已送出，請輸入信中的驗證碼。');}
   };
   document.getElementById('recoveryForm').onsubmit=async event=>{
     event.preventDefault();
     const values=Object.fromEntries(new FormData(event.currentTarget));
     if(values.password!==values.confirmPassword){message('兩次輸入的密碼不一致。',true);return;}
+    if(!recoverySessionReady){
+      message('正在驗證一次性驗證碼…');
+      const {error}=await client.auth.verifyOtp({email:values.email.trim(),token:values.token.trim(),type:'recovery'});
+      if(error){message(error.message,true);return;}
+      recoverySessionReady=true;
+    }
     message('正在更新密碼…');
     const {error}=await client.auth.updateUser({password:values.password});
     if(error){message(error.message,true);return;}
@@ -156,6 +171,6 @@
     if(error)fail(error);else alert(`已加入 ${email.trim()}（${role==='editor'?'可編輯':'唯讀'}）。`);
   };
 
-  client.auth.onAuthStateChange((event,session)=>{setTimeout(()=>event==='PASSWORD_RECOVERY'?showRecovery():(!recoveryRequested&&startRemote(session)),0);});
-  client.auth.getSession().then(({data,error})=>{if(error)message(error.message,true);else if(recoveryRequested)showRecovery();else startRemote(data.session);});
+  client.auth.onAuthStateChange((event,session)=>{setTimeout(()=>event==='PASSWORD_RECOVERY'?showRecovery(true):(!recoveryRequested&&startRemote(session)),0);});
+  client.auth.getSession().then(({data,error})=>{if(error)message(error.message,true);else if(recoveryRequested&&data.session)showRecovery(true);else if(recoveryRequested)showRecovery(false);else startRemote(data.session);});
 })();
