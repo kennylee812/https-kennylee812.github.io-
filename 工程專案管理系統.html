@@ -767,4 +767,35 @@ render=function(){
     catch(error){alert('預計成本儲存失敗：'+error.message);button.disabled=false;button.textContent='儲存預計成本';}
   };
 };
+</script><script>
+/* 點選物料成本明細的工程項目／施工工項時，直接帶入上方下拉式選單。 */
+var materialDetailNavigationRender=render;
+render=function(){
+  materialDetailNavigationRender();
+  if(!current)return;
+  $('materialBody').querySelectorAll('tr').forEach(row=>{
+    const firstCell=row.querySelector('td');
+    if(!firstCell)return;
+    const label=firstCell.textContent.replace(/[＋−└]/g,'').replace(/\s+/g,' ').trim();
+    const root=(current.progress||[]).find(item=>!item.parent&&item.name===label);
+    const work=(current.progress||[]).find(item=>item.parent&&item.name===label);
+    if(root){
+      row.style.cursor='pointer';
+      row.onclick=event=>{
+        if(event.target.closest('button'))return;
+        const project=$('materialProject');
+        project.value=root.name;project.onchange();
+        collapsedMaterialCostGroups.has(root.name)?collapsedMaterialCostGroups.delete(root.name):collapsedMaterialCostGroups.add(root.name);
+        render();
+      };
+    }else if(work){
+      row.style.cursor='pointer';
+      row.onclick=event=>{
+        if(event.target.closest('button'))return;
+        selectWorkForCost('materialProject','materialTask',work.name);
+        $('materialForm').scrollIntoView({behavior:'smooth',block:'center'});
+      };
+    }
+  });
+};
 </script></body></html>
