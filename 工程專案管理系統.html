@@ -698,4 +698,50 @@ form('progressForm',async o=>{
   }
   await saveProject();
 });
+</script><script>
+/* 物料成本明細與人工成本明細採用相同的工程項目／施工工項結構。 */
+var progressDrivenMaterialRender=render;
+render=function(){
+  progressDrivenMaterialRender();
+  if(!current)return;
+  const roots=(current.progress||[]).filter(item=>!item.parent);
+  const works=(current.progress||[]).filter(item=>item.parent);
+  const materials=current.materials||[];
+  const rows=[];
+  roots.forEach(root=>{
+    if(!knownMaterialCostGroups.has(root.name)){
+      knownMaterialCostGroups.add(root.name);
+      collapsedMaterialCostGroups.add(root.name);
+    }
+    const collapsed=collapsedMaterialCostGroups.has(root.name);
+    const children=works.filter(work=>work.parent===root.name);
+    rows.push(`<tr data-material-group="${esc(root.name)}" style="cursor:pointer"><td colspan="10"><b>${collapsed?'＋':'−'} ${esc(root.name)}</b></td></tr>`);
+    if(collapsed)return;
+    if(!children.length){
+      rows.push('<tr><td>　└ 尚無施工工項</td><td colspan="9" class="empty">請先建立施工工項</td></tr>');
+      return;
+    }
+    children.forEach(work=>{
+      const records=materials.map((item,index)=>({item,index})).filter(record=>record.item.task===work.name);
+      if(!records.length){
+        rows.push(`<tr><td>　└ ${esc(work.name)}</td><td class="empty">尚無物料成本</td><td></td><td class="num">0</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${diff(0)}</td><td></td></tr>`);
+        return;
+      }
+      records.forEach(({item,index})=>{
+        const budget=item.qty*item.budget,actual=item.qty*item.actual;
+        rows.push(`<tr data-material-index="${index}" style="cursor:pointer"><td>　└ ${esc(work.name)}</td><td>${esc(item.name)}</td><td>${esc(item.unit)}</td><td class="num">${item.qty}</td><td class="num">${fmt(item.budget)}</td><td class="num">${fmt(budget)}</td><td class="num">${fmt(item.actual)}</td><td class="num">${fmt(actual)}</td><td class="num">${diff(budget-actual)}</td><td><button class="danger" onclick="delDetail('materials',${index})">刪除</button></td></tr>`);
+      });
+    });
+  });
+  const assigned=new Set(works.map(work=>work.name));
+  materials.forEach((item,index)=>{
+    if(!assigned.has(item.task)){
+      const budget=item.qty*item.budget,actual=item.qty*item.actual;
+      rows.push(`<tr data-material-index="${index}" style="cursor:pointer"><td>　└ ${esc(item.task||'未指定施工工項')}</td><td>${esc(item.name)}</td><td>${esc(item.unit)}</td><td class="num">${item.qty}</td><td class="num">${fmt(item.budget)}</td><td class="num">${fmt(budget)}</td><td class="num">${fmt(item.actual)}</td><td class="num">${fmt(actual)}</td><td class="num">${diff(budget-actual)}</td><td><button class="danger" onclick="delDetail('materials',${index})">刪除</button></td></tr>`);
+    }
+  });
+  $('materialBody').innerHTML=rows.length?rows.join(''):empty(10);
+  $('materialBody').querySelectorAll('[data-material-group]').forEach(row=>{row.onclick=()=>toggleMaterialCostGroup(row.dataset.materialGroup);});
+  $('materialBody').querySelectorAll('[data-material-index]').forEach(row=>{row.onclick=e=>{if(!e.target.closest('button'))editMaterial(+row.dataset.materialIndex);};});
+};
 </script></body></html>
