@@ -192,7 +192,7 @@ $('excelImportInput').onchange=async e=>{
       });
     }
     if(!projectsRows.length)throw new Error('找不到「專案」工作表或其資料。');
-    for(const store of ['projects','materialMasters','laborMasters']) await clearStore(store);
+    for(const store of ['projects','materialMasters','laborMasters']) await new Promise((ok,no)=>{const r=tx(store,'readwrite').clear();r.onsuccess=()=>ok();r.onerror=()=>no(r.error)});
     const imported=new Map();
     for(const r of projectsRows){const p={name:String(r['專案名稱']).trim(),progress:[],materials:[],labor:[],daily:[]};if(p.name){p.id=await put('projects',p);imported.set(p.name,p)}}
     for(const r of progressRows){const p=imported.get(String(r['專案名稱']));if(p)p.progress.push({name:String(r['工程項目']),parent:String(r['所屬工程項目']||''),start:String(r['開始日期']),end:String(r['預計完工']),planned:+r['預計進度']||0,actual:+r['實際進度']||0})}
@@ -346,10 +346,9 @@ window.delDetail=async function(type,index){
 /* 明確區分新增工程項目與新增施作工項。 */
 function syncProgressType(){
   const isWork=$('progressType').value==='work';
-  const parent=$('progressParent');
-  parent.disabled=!isWork;
-  if(parent.options[0])parent.options[0].textContent=isWork?'選擇所屬工程項目':'不需選擇（建立工程項目）';
-  if(!isWork)parent.value='';
+  $('progressParent').disabled=!isWork;
+  $('progressParent').options[0].textContent=isWork?'選擇所屬工程項目':'不需選擇（建立工程項目）';
+  if(!isWork)$('progressParent').value='';
 }
 $('progressType').onchange=syncProgressType;
 syncProgressType();
@@ -605,4 +604,98 @@ var costPriceDefaultsRender=render;
 render=function(){costPriceDefaultsRender();setCostPriceDefaults();};
 setCostPriceDefaults();
 document.addEventListener('reset',()=>setTimeout(setCostPriceDefaults,0));
-</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./supabase-backend.js?v=create-project-rpc-1"></script></body></html>
+</script><script>
+/* 人工成本明細永遠以工程進度表的最新工程項目／施工工項為準。 */
+var progressDrivenLaborRender=render;
+render=function(){
+  progressDrivenLaborRender();
+  if(!current)return;
+  const roots=current.progress.filter(x=>!x.parent);
+  const works=current.progress.filter(x=>x.parent);
+  const rows=[];
+  roots.forEach(root=>{
+    if(!knownLaborCostGroups.has(root.name)){knownLaborCostGroups.add(root.name);collapsedLaborCostGroups.add(root.name);}
+    const collapsed=collapsedLaborCostGroups.has(root.name),children=works.filter(x=>x.parent===root.name);
+    rows.push(`<tr data-labor-group="${esc(root.name)}" style="cursor:pointer"><td colspan="12"><b>${collapsed?'＋':'−'} ${esc(root.name)}</b></td></tr>`);
+    if(collapsed)return;
+    if(!children.length){rows.push(`<tr><td>　└ 尚無施工工項</td><td colspan="11" class="empty">請先建立施工工項</td></tr>`);return;}
+    children.forEach(work=>{
+      const records=current.labor.map((item,index)=>({item,index})).filter(x=>x.item.task===work.name);
+      if(!records.length){rows.push(`<tr><td>　└ ${esc(work.name)}</td><td class="empty">尚無人工成本</td><td>${work.start&&work.end?`${work.start} ～ ${work.end}`:''}</td><td class="num">0</td><td class="num">0</td><td class="num">8</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${diff(0)}</td><td></td></tr>`);return;}
+      records.forEach(({item,index})=>{
+        const days=item.days??item.hours??0,people=item.people??1,hours=item.dailyHours??8,budget=days*people*item.budget,actual=days*people*item.actual,period=item.start&&item.end?`${item.start} ～ ${item.end}`:'舊資料';
+        rows.push(`<tr data-labor-index="${index}" style="cursor:pointer"><td>　└ ${esc(work.name)}</td><td>${esc(item.name)}</td><td>${period}</td><td class="num">${people}</td><td class="num">${days}</td><td class="num">${hours}</td><td class="num">${fmt(item.budget)}</td><td class="num">${fmt(budget)}</td><td class="num">${fmt(item.actual)}</td><td class="num">${fmt(actual)}</td><td class="num">${diff(budget-actual)}</td><td><button class="danger" onclick="delDetail('labor',${index})">刪除</button></td></tr>`);
+      });
+    });
+  });
+  const assigned=new Set(works.map(x=>x.name));
+  current.labor.forEach((item,index)=>{if(!assigned.has(item.task))rows.push(`<tr data-labor-index="${index}" style="cursor:pointer"><td>　└ ${esc(item.task||'未指定施工工項')}</td><td>${esc(item.name)}</td><td colspan="9" class="empty">未對應至工程進度表的施工工項</td><td><button class="danger" onclick="delDetail('labor',${index})">刪除</button></td></tr>`);});
+  $('laborBody').innerHTML=rows.length?rows.join(''):empty(12);
+  $('laborBody').querySelectorAll('[data-labor-group]').forEach(row=>{row.onclick=()=>toggleLaborCostGroup(row.dataset.laborGroup);});
+  $('laborBody').querySelectorAll('[data-labor-index]').forEach(row=>{row.onclick=e=>{if(!e.target.closest('button'))editLabor(+row.dataset.laborIndex);};});
+};
+</script><script>
+/* 每個施工工項都保有一筆人工成本預備列，確保明細與進度表同步。 */
+var laborPlaceholderRender=render;
+render=function(){
+  if(current?.progress){
+    let changed=false;
+    current.progress.filter(x=>x.parent).forEach(work=>{
+      if(!current.labor.some(item=>item.task===work.name)){
+        current.labor.push({name:'尚無人工成本',task:work.name,start:work.start||'',end:work.end||'',days:0,people:0,dailyHours:8,budget:0,actual:0,isPlaceholder:true});
+        changed=true;
+      }
+    });
+    if(changed)put('projects',current);
+  }
+  laborPlaceholderRender();
+};
+form('laborForm',async o=>{
+  const start=new Date(`${o.start}T00:00:00`),end=new Date(`${o.end}T00:00:00`),days=Math.round((end-start)/86400000)+1;
+  if(!Number.isFinite(days)||days<1){alert('結束日期必須等於或晚於開始日期。');return;}
+  const record={name:o.name,task:o.task,start:o.start,end:o.end,days,people:+o.people,dailyHours:+o.dailyHours,budget:+o.budget,actual:+o.actual};
+  if(editingLaborIndex===null){current.labor=current.labor.filter(item=>!(item.isPlaceholder&&item.task===record.task));current.labor.push(record);}else current.labor[editingLaborIndex]=record;
+  editingLaborIndex=null;
+  await upsertCostMaster('laborMasters',{name:record.name,unit:'日',price:record.actual||record.budget},x=>x.name===record.name);
+  await put('projects',current);await refreshMasters();render();
+  $('laborForm').querySelector('button').textContent='加入本專案';
+});
+</script><script>
+/* 新增施工工項時即建立人工成本預備列，避免明細需等候下一次重繪才更新。 */
+function ensureLaborPlaceholders(){
+  if(!current?.progress)return false;
+  let changed=false;
+  current.progress.filter(item=>item.parent).forEach(work=>{
+    if(!current.labor.some(item=>item.task===work.name)){
+      current.labor.push({
+        name:'尚無人工成本', task:work.name,
+        start:work.start||'', end:work.end||'', days:0,
+        people:0, dailyHours:8, budget:0, actual:0, isPlaceholder:true
+      });
+      changed=true;
+    }
+  });
+  return changed;
+}
+
+/* 對舊有專案資料補齊施工工項列，並在建立新施工工項後立即保存。 */
+var instantLaborSyncRender=render;
+render=function(){
+  const changed=ensureLaborPlaceholders();
+  instantLaborSyncRender();
+  if(changed)put('projects',current);
+};
+
+form('progressForm',async o=>{
+  if(o.type==='work'&&!o.parent){alert('請先選擇所屬工程項目。');return;}
+  const item={name:o.name,parent:o.type==='work'?o.parent:'',start:o.start,end:o.end,planned:+o.planned,actual:+o.actual};
+  current.progress.push(item);
+  if(item.parent){
+    current.labor=current.labor||[];
+    if(!current.labor.some(cost=>cost.task===item.name)){
+      current.labor.push({name:'尚無人工成本',task:item.name,start:item.start||'',end:item.end||'',days:0,people:0,dailyHours:8,budget:0,actual:0,isPlaceholder:true});
+    }
+  }
+  await saveProject();
+});
+</script></body></html>
