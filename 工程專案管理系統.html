@@ -744,4 +744,27 @@ render=function(){
   $('materialBody').querySelectorAll('[data-material-group]').forEach(row=>{row.onclick=()=>toggleMaterialCostGroup(row.dataset.materialGroup);});
   $('materialBody').querySelectorAll('[data-material-index]').forEach(row=>{row.onclick=e=>{if(!e.target.closest('button'))editMaterial(+row.dataset.materialIndex);};});
 };
+</script><script>
+/* 新分頁的項目報表可直接登錄項目級預計物料／人工成本。 */
+var taskExpectedCostRender=render;
+render=function(){
+  taskExpectedCostRender();
+  if(!current||selectedTaskIndex===null||!current.progress?.[selectedTaskIndex])return;
+  const item=current.progress[selectedTaskIndex];
+  current.daily??=[];
+  const expected=current.daily.find(row=>row.task===item.name&&row.trade==='項目預計成本');
+  const plannedMaterial=expected?.plannedMaterial??0;
+  const plannedLabor=expected?.plannedLabor??0;
+  $('taskDetail').insertAdjacentHTML('beforeend',`<div class="panel"><h3>預計成本</h3><p class="hint">此處填寫本項目的整體預計成本；會納入本項目與專案的預算、實際成本及差異比較。</p><form id="taskExpectedCostForm"><label>預計物料成本<input name="material" type="number" min="0" step="0.01" value="${plannedMaterial}" required></label><label>預計人工成本<input name="labor" type="number" min="0" step="0.01" value="${plannedLabor}" required></label><button>儲存預計成本</button></form></div>`);
+  $('taskExpectedCostForm').onsubmit=async event=>{
+    event.preventDefault();
+    const values=Object.fromEntries(new FormData(event.target));
+    const record={date:item.start||new Date().toISOString().slice(0,10),task:item.name,trade:'項目預計成本',plannedPeople:0,actualPeople:0,plannedMaterial:+values.material||0,plannedLabor:+values.labor||0,actualMaterial:0,actualLabor:0};
+    const index=current.daily.findIndex(row=>row.task===item.name&&row.trade==='項目預計成本');
+    if(index>=0)current.daily[index]={...current.daily[index],...record};else current.daily.push(record);
+    const button=event.target.querySelector('button');button.disabled=true;button.textContent='儲存中…';
+    try{await put('projects',current);render();alert('預計成本已儲存。');}
+    catch(error){alert('預計成本儲存失敗：'+error.message);button.disabled=false;button.textContent='儲存預計成本';}
+  };
+};
 </script></body></html>
