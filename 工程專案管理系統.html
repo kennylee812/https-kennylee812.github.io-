@@ -911,30 +911,32 @@ render=function(){
 var projectReportRollupRender=render;
 render=function(){
   projectReportRollupRender();
-  if(!current||selectedTaskIndex===null||!current.progress?.[selectedTaskIndex])return;
-  const item=current.progress[selectedTaskIndex];
-  const names=item.parent?[item.name]:[item.name,...current.progress.filter(work=>work.parent===item.name).map(work=>work.name)];
-  const matches=item=>names.some(name=>taskKey(item.task)===taskKey(name));
-  const materials=(current.materials||[]).filter(matches),labors=(current.labor||[]).filter(matches),daily=(current.daily||[]).filter(matches);
-  const materialBudget=materials.reduce((sum,row)=>sum+(+row.qty||0)*(+row.budget||0),0),materialActual=materials.reduce((sum,row)=>sum+(+row.qty||0)*(+row.actual||0),0);
-  const laborBudget=labors.reduce((sum,row)=>sum+(+(row.days??row.hours??0))*(+row.people||1)*(+row.budget||0),0),laborActual=labors.reduce((sum,row)=>sum+(+(row.days??row.hours??0))*(+row.people||1)*(+row.actual||0),0);
-  const dailyBudget=daily.reduce((sum,row)=>sum+(+row.plannedMaterial||0)+(+row.plannedLabor||0),0),dailyActual=daily.reduce((sum,row)=>sum+(+row.actualMaterial||0)+(+row.actualLabor||0),0);
-  const totalBudget=materialBudget+laborBudget+dailyBudget,totalActual=materialActual+laborActual+dailyActual;
-  const detail=$('taskDetail'),grid=detail.querySelector('.grid');
-  if(!grid)return;
-  const cards=grid.querySelectorAll('.card');
-  if(cards[2])cards[2].innerHTML=`<div class="label">物料成本</div><div class="sub">預算 ${fmt(materialBudget)}</div><div class="sub">實際 ${fmt(materialActual)}</div>`;
-  if(cards[3])cards[3].innerHTML=`<div class="label">人工成本</div><div class="sub">預算 ${fmt(laborBudget)}</div><div class="sub">實際 ${fmt(laborActual)}</div>`;
-  let dailyCard=Array.from(grid.querySelectorAll('.card')).find(card=>card.querySelector('.label')?.textContent==='每日成本');
-  if(!dailyCard){dailyCard=document.createElement('div');dailyCard.className='card';grid.appendChild(dailyCard);}
-  dailyCard.innerHTML=`<div class="label">每日成本</div><div class="sub">預算 ${fmt(dailyBudget)}</div><div class="sub">實際 ${fmt(dailyActual)}</div>`;
-  const summary=Array.from(detail.children).filter(node=>node.classList?.contains('cost-row'));
-  if(summary[0])summary[0].lastElementChild.textContent=fmt(totalBudget);
-  if(summary[1])summary[1].lastElementChild.textContent=fmt(totalActual);
-  if(summary[2])summary[2].lastElementChild.innerHTML=diff(totalBudget-totalActual);
-  if(!item.parent&&!detail.querySelector('.project-rollup-note')){
-    const note=document.createElement('p');note.className='hint project-rollup-note';note.textContent=`已彙總 ${names.length-1} 個施工工項的成本。`;
-    detail.querySelector('h2')?.insertAdjacentElement('afterend',note);
-  }
+  try{
+    if(!current||selectedTaskIndex===null||!current.progress?.[selectedTaskIndex])return;
+    const item=current.progress[selectedTaskIndex],key=value=>String(value||'').replace(/\s+/g,'').toLocaleLowerCase();
+    const names=item.parent?[item.name]:[item.name,...current.progress.filter(work=>work.parent===item.name).map(work=>work.name)];
+    const matches=row=>names.some(name=>key(row.task)===key(name));
+    const materials=(current.materials||[]).filter(matches),labors=(current.labor||[]).filter(matches),daily=(current.daily||[]).filter(matches);
+    const materialBudget=materials.reduce((sum,row)=>sum+(+row.qty||0)*(+row.budget||0),0),materialActual=materials.reduce((sum,row)=>sum+(+row.qty||0)*(+row.actual||0),0);
+    const laborBudget=labors.reduce((sum,row)=>sum+(+(row.days??row.hours??0))*(+row.people||1)*(+row.budget||0),0),laborActual=labors.reduce((sum,row)=>sum+(+(row.days??row.hours??0))*(+row.people||1)*(+row.actual||0),0);
+    const dailyBudget=daily.reduce((sum,row)=>sum+(+row.plannedMaterial||0)+(+row.plannedLabor||0),0),dailyActual=daily.reduce((sum,row)=>sum+(+row.actualMaterial||0)+(+row.actualLabor||0),0);
+    const totalBudget=materialBudget+laborBudget+dailyBudget,totalActual=materialActual+laborActual+dailyActual;
+    const detail=$('taskDetail'),grid=detail.querySelector('.grid');
+    if(!grid)return;
+    const cards=grid.querySelectorAll('.card');
+    if(cards[2])cards[2].innerHTML=`<div class="label">物料成本</div><div class="sub">預算 ${fmt(materialBudget)}</div><div class="sub">實際 ${fmt(materialActual)}</div>`;
+    if(cards[3])cards[3].innerHTML=`<div class="label">人工成本</div><div class="sub">預算 ${fmt(laborBudget)}</div><div class="sub">實際 ${fmt(laborActual)}</div>`;
+    let dailyCard=Array.from(grid.querySelectorAll('.card')).find(card=>card.querySelector('.label')?.textContent==='每日成本');
+    if(!dailyCard){dailyCard=document.createElement('div');dailyCard.className='card';grid.appendChild(dailyCard);}
+    dailyCard.innerHTML=`<div class="label">每日成本</div><div class="sub">預算 ${fmt(dailyBudget)}</div><div class="sub">實際 ${fmt(dailyActual)}</div>`;
+    const summary=Array.from(detail.children).filter(node=>node.classList?.contains('cost-row'));
+    if(summary[0])summary[0].lastElementChild.textContent=fmt(totalBudget);
+    if(summary[1])summary[1].lastElementChild.textContent=fmt(totalActual);
+    if(summary[2])summary[2].lastElementChild.innerHTML=diff(totalBudget-totalActual);
+    if(!item.parent&&!detail.querySelector('.project-rollup-note')){
+      const note=document.createElement('p');note.className='hint project-rollup-note';note.textContent=`已彙總 ${names.length-1} 個施工工項的成本。`;
+      detail.querySelector('h2')?.insertAdjacentElement('afterend',note);
+    }
+  }catch(error){console.error('工程項目成本彙總失敗',error);}
 };
 </script></body></html>
