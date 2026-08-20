@@ -806,17 +806,29 @@ render=function(){
 /* 每日成本差異自動列出今天排程中的施工工項，並可帶入兩個每日填報表單。 */
 function dailyScheduleToday(){const now=new Date();return new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);}
 function isScheduledOnDate(item,date){return !!(item.start&&item.end&&item.start<=date&&date<=item.end);}
+function scheduledLaborForDate(task,date){
+  return (current.labor||[]).filter(item=>item.task===task&&isScheduledOnDate(item,date)).reduce((total,item)=>{
+    const people=+item.people||0;
+    total.plannedPeople+=people;
+    total.actualPeople+=(+item.actual>0?people:0);
+    total.plannedLabor+=people*(+item.budget||0);
+    total.actualLabor+=people*(+item.actual||0);
+    if(item.name)total.trades.push(item.name);
+    return total;
+  },{plannedPeople:0,actualPeople:0,plannedLabor:0,actualLabor:0,trades:[]});
+}
 function selectDailyScheduledWork(work,date){
   const planForm=$('dailyPlanForm'),actualForm=$('dailyActualForm');
   ['dailyPlanProject','dailyActualProject'].forEach(id=>{const project=$(id);project.value=work.parent||work.name;project.onchange();});
   $('dailyPlanTask').value=work.name;$('dailyActualTask').value=work.name;
   const entries=(current.daily||[]).filter(row=>row.date===date&&row.task===work.name&&row.trade!=='項目預計成本');
   const entry=entries[0];
+  const scheduledLabor=scheduledLaborForDate(work.name,date);
   planForm.elements.date.value=date;actualForm.elements.date.value=date;
-  planForm.elements.trade.value=entry?.trade||'';actualForm.elements.trade.value=entry?.trade||'';
-  planForm.elements.people.value=entry?.plannedPeople??0;actualForm.elements.people.value=entry?.actualPeople??0;
+  planForm.elements.trade.value=entry?.trade||scheduledLabor.trades.join('、');actualForm.elements.trade.value=entry?.trade||scheduledLabor.trades.join('、');
+  planForm.elements.people.value=entry?.plannedPeople??scheduledLabor.plannedPeople;actualForm.elements.people.value=entry?.actualPeople??scheduledLabor.actualPeople;
   planForm.elements.material.value=entry?.plannedMaterial??0;actualForm.elements.material.value=entry?.actualMaterial??0;
-  planForm.elements.labor.value=entry?.plannedLabor??0;actualForm.elements.labor.value=entry?.actualLabor??0;
+  planForm.elements.labor.value=entry?.plannedLabor??scheduledLabor.plannedLabor;actualForm.elements.labor.value=entry?.actualLabor??scheduledLabor.actualLabor;
   planForm.scrollIntoView({behavior:'smooth',block:'center'});
 }
 var dailyScheduleRender=render;
@@ -837,7 +849,8 @@ render=function(){
     children.forEach(work=>{
       const entries=(current.daily||[]).map((item,index)=>({item,index})).filter(record=>record.item.date===date&&record.item.task===work.name&&record.item.trade!=='項目預計成本');
       if(!entries.length){
-        rows.push(`<tr data-daily-schedule-task="${esc(work.name)}" style="cursor:pointer"><td>${date}</td><td>　└ ${esc(work.name)}</td><td class="empty">尚未填報</td><td class="num">0</td><td class="num">0</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${diff(0)}</td><td></td></tr>`);
+        const labor=scheduledLaborForDate(work.name,date),planned=labor.plannedLabor,actual=labor.actualLabor;
+        rows.push(`<tr data-daily-schedule-task="${esc(work.name)}" style="cursor:pointer"><td>${date}</td><td>　└ ${esc(work.name)}</td><td>${esc(labor.trades.join('、')||'尚未填報')}</td><td class="num">${labor.plannedPeople}</td><td class="num">${labor.actualPeople}</td><td class="num">${fmt(planned)}</td><td class="num">${fmt(actual)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${diff(planned-actual)}</td><td></td></tr>`);
         return;
       }
       entries.forEach(({item,index})=>{
