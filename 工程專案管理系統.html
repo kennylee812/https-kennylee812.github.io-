@@ -147,7 +147,7 @@ render=function(){
   const laborBudget=labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.budget,0),laborActual=labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.actual,0);
   const dailyBudget=daily.reduce((s,x)=>s+(x.plannedMaterial||0)+(x.plannedLabor||0),0),dailyActual=daily.reduce((s,x)=>s+(x.actualMaterial||0)+(x.actualLabor||0),0);
   const totalBudget=materialBudget+laborBudget+dailyBudget,totalActual=materialActual+laborActual+dailyActual;
-  const childNote=item.parent?'':`<p class="hint">已彙總 ${taskNames.length-1} 個施工工項的成本。</p>`;
+  const childNote=item.parent?'':`<p class="hint project-rollup-note">已彙總 ${taskNames.length-1} 個施工工項的成本。</p>`;
   $('taskDetail').innerHTML=`<h2>${esc(name)}：進度與成本報表</h2>${childNote}<div class="grid"><div class="card"><div class="label">預計進度</div><div class="value">${item.planned}%</div></div><div class="card"><div class="label">實際進度</div><div class="value">${item.actual}%</div></div><div class="card"><div class="label">物料成本</div><div class="sub">預算 ${fmt(materialBudget)}</div><div class="sub">實際 ${fmt(materialActual)}</div></div><div class="card"><div class="label">人工成本</div><div class="sub">預算 ${fmt(laborBudget)}</div><div class="sub">實際 ${fmt(laborActual)}</div></div><div class="card"><div class="label">每日成本</div><div class="sub">預算 ${fmt(dailyBudget)}</div><div class="sub">實際 ${fmt(dailyActual)}</div></div></div><div class="cost-row"><b>本項目總預算</b><span>${fmt(totalBudget)}</span></div><div class="cost-row"><b>本項目實際成本</b><span>${fmt(totalActual)}</span></div><div class="cost-row"><b>預算差異</b><span>${diff(totalBudget-totalActual)}</span></div>`;
 };
 form('materialForm',async o=>{const p=+o.price;current.materials.push({task:o.task,name:o.name,unit:o.unit,qty:+o.qty,budget:p,actual:p});await saveProject();});
@@ -909,6 +909,11 @@ render=function(){
 </script><script>
 /* 最終彙總：工程項目報表強制以所有下屬施工工項重算成本，兼容既有資料。 */
 var projectReportRollupRender=render;
+if(!document.getElementById('reportSummaryLayoutStyles')){
+  const style=document.createElement('style');style.id='reportSummaryLayoutStyles';
+  style.textContent='.report-summary-layout{display:grid;grid-template-columns:1fr;gap:13px}.report-progress-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.report-cost-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}@media(max-width:820px){.report-cost-grid{grid-template-columns:1fr}.report-progress-grid{grid-template-columns:1fr}}';
+  document.head.appendChild(style);
+}
 render=function(){
   projectReportRollupRender();
   try{
@@ -929,6 +934,13 @@ render=function(){
     let dailyCard=Array.from(grid.querySelectorAll('.card')).find(card=>card.querySelector('.label')?.textContent==='每日成本');
     if(!dailyCard){dailyCard=document.createElement('div');dailyCard.className='card';grid.appendChild(dailyCard);}
     dailyCard.innerHTML=`<div class="label">每日成本</div><div class="sub">預算 ${fmt(dailyBudget)}</div><div class="sub">實際 ${fmt(dailyActual)}</div>`;
+    if(!grid.classList.contains('report-summary-layout')){
+      const cards=Array.from(grid.querySelectorAll('.card'));
+      const progressRow=document.createElement('div'),costRow=document.createElement('div');
+      progressRow.className='report-progress-grid';costRow.className='report-cost-grid';
+      cards.slice(0,2).forEach(card=>progressRow.appendChild(card));cards.slice(2).forEach(card=>costRow.appendChild(card));
+      grid.classList.add('report-summary-layout');grid.replaceChildren(progressRow,costRow);
+    }
     const summary=Array.from(detail.children).filter(node=>node.classList?.contains('cost-row'));
     if(summary[0])summary[0].lastElementChild.textContent=fmt(totalBudget);
     if(summary[1])summary[1].lastElementChild.textContent=fmt(totalActual);
