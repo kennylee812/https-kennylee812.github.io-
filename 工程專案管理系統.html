@@ -140,10 +140,15 @@ render=function(){
   Array.from($('progressBody').querySelectorAll('tr')).forEach((row,index)=>{row.style.cursor='pointer';row.onclick=e=>{if(e.target.tagName!=='BUTTON')selectTask(index)};});
   if(selectedTaskIndex===null||!current.progress[selectedTaskIndex]){ $('taskDetail').innerHTML='<h2>工程項目報表</h2><p class="hint">請在上方工程進度表點選一個工程項目。</p>';return; }
   const item=current.progress[selectedTaskIndex],name=item.name;
-  const material=current.materials.filter(x=>x.task===name),labor=current.labor.filter(x=>x.task===name),daily=current.daily.filter(x=>x.task===name);
-  const mb=material.reduce((s,x)=>s+x.qty*x.budget,0)+daily.reduce((s,x)=>s+(x.plannedMaterial||0),0),ma=material.reduce((s,x)=>s+x.qty*x.actual,0)+daily.reduce((s,x)=>s+(x.actualMaterial||0),0);
-  const lb=labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.budget,0)+daily.reduce((s,x)=>s+(x.plannedLabor||0),0),la=labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.actual,0)+daily.reduce((s,x)=>s+(x.actualLabor||0),0);
-  $('taskDetail').innerHTML=`<h2>${esc(name)}：進度與成本報表</h2><div class="grid"><div class="card"><div class="label">預計進度</div><div class="value">${item.planned}%</div></div><div class="card"><div class="label">實際進度</div><div class="value">${item.actual}%</div></div><div class="card"><div class="label">物料成本</div><div class="sub">預算 ${fmt(mb)}</div><div class="sub">實際 ${fmt(ma)}</div></div><div class="card"><div class="label">人工成本</div><div class="sub">預算 ${fmt(lb)}</div><div class="sub">實際 ${fmt(la)}</div></div></div><div class="cost-row"><b>本項目總預算</b><span>${fmt(mb+lb)}</span></div><div class="cost-row"><b>本項目實際成本</b><span>${fmt(ma+la)}</span></div><div class="cost-row"><b>預算差異</b><span>${diff(mb+lb-ma-la)}</span></div>`;
+  const taskNames=item.parent?[name]:[name,...current.progress.filter(work=>work.parent===name).map(work=>work.name)];
+  const belongs=item=>taskNames.includes(item.task);
+  const material=current.materials.filter(belongs),labor=current.labor.filter(belongs),daily=current.daily.filter(belongs);
+  const materialBudget=material.reduce((s,x)=>s+x.qty*x.budget,0),materialActual=material.reduce((s,x)=>s+x.qty*x.actual,0);
+  const laborBudget=labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.budget,0),laborActual=labor.reduce((s,x)=>s+(x.days??x.hours??0)*(x.people??1)*x.actual,0);
+  const dailyBudget=daily.reduce((s,x)=>s+(x.plannedMaterial||0)+(x.plannedLabor||0),0),dailyActual=daily.reduce((s,x)=>s+(x.actualMaterial||0)+(x.actualLabor||0),0);
+  const totalBudget=materialBudget+laborBudget+dailyBudget,totalActual=materialActual+laborActual+dailyActual;
+  const childNote=item.parent?'':`<p class="hint">已彙總 ${taskNames.length-1} 個施工工項的成本。</p>`;
+  $('taskDetail').innerHTML=`<h2>${esc(name)}：進度與成本報表</h2>${childNote}<div class="grid"><div class="card"><div class="label">預計進度</div><div class="value">${item.planned}%</div></div><div class="card"><div class="label">實際進度</div><div class="value">${item.actual}%</div></div><div class="card"><div class="label">物料成本</div><div class="sub">預算 ${fmt(materialBudget)}</div><div class="sub">實際 ${fmt(materialActual)}</div></div><div class="card"><div class="label">人工成本</div><div class="sub">預算 ${fmt(laborBudget)}</div><div class="sub">實際 ${fmt(laborActual)}</div></div><div class="card"><div class="label">每日成本</div><div class="sub">預算 ${fmt(dailyBudget)}</div><div class="sub">實際 ${fmt(dailyActual)}</div></div></div><div class="cost-row"><b>本項目總預算</b><span>${fmt(totalBudget)}</span></div><div class="cost-row"><b>本項目實際成本</b><span>${fmt(totalActual)}</span></div><div class="cost-row"><b>預算差異</b><span>${diff(totalBudget-totalActual)}</span></div>`;
 };
 form('materialForm',async o=>{const p=+o.price;current.materials.push({task:o.task,name:o.name,unit:o.unit,qty:+o.qty,budget:p,actual:p});await saveProject();});
 </script><script>
