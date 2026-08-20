@@ -278,12 +278,13 @@ setProgressDateDefaults();
 $('progressForm').addEventListener('reset',()=>setTimeout(setProgressDateDefaults,0));
 </script><script>
 /* 工程排程日期是人工成本起訖日期的唯一來源。 */
+function taskKey(value){return String(value||'').replace(/\s+/g,'').toLocaleLowerCase();}
 function syncLaborSchedule(task,start,end){
   const startDate=new Date(`${start}T00:00:00`),endDate=new Date(`${end}T00:00:00`);
   const days=Math.round((endDate-startDate)/86400000)+1;
   if(!Number.isFinite(days)||days<1)return;
   (current?.labor||[]).forEach(record=>{
-    if(String(record.task||'').trim()===String(task||'').trim()){
+    if(taskKey(record.task)===taskKey(task)){
       record.start=start;record.end=end;record.days=days;
     }
   });
@@ -887,7 +888,7 @@ function syncAllLaborSchedules(){
     const days=Math.round((endDate-startDate)/86400000)+1;
     if(!Number.isFinite(days)||days<1)return;
     current.labor.forEach(record=>{
-      if(String(record.task||'').trim()===String(work.name||'').trim()&&(record.start!==work.start||record.end!==work.end||record.days!==days)){
+      if(taskKey(record.task)===taskKey(work.name)&&(record.start!==work.start||record.end!==work.end||record.days!==days)){
         record.start=work.start;record.end=work.end;record.days=days;changed=true;
       }
     });
