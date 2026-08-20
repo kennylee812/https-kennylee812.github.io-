@@ -877,4 +877,27 @@ render=function(){
   $('dailyBody').querySelectorAll('[data-daily-schedule-group]').forEach(row=>{row.onclick=()=>{const name=row.dataset.dailyScheduleGroup;collapsedDailyCostGroups.has(name)?collapsedDailyCostGroups.delete(name):collapsedDailyCostGroups.add(name);render();};});
   $('dailyBody').querySelectorAll('[data-daily-schedule-task]').forEach(row=>{row.onclick=event=>{if(event.target.closest('button'))return;const work=works.find(item=>item.name===row.dataset.dailyScheduleTask);if(work)selectDailyScheduledWork(work,date);};});
 };
+</script><script>
+/* 開啟既有專案時也回填人工成本日期，確保舊資料與工程進度表一致。 */
+function syncAllLaborSchedules(){
+  if(!current?.progress||!current?.labor)return false;
+  let changed=false;
+  current.progress.filter(item=>item.parent&&item.start&&item.end).forEach(work=>{
+    const startDate=new Date(`${work.start}T00:00:00`),endDate=new Date(`${work.end}T00:00:00`);
+    const days=Math.round((endDate-startDate)/86400000)+1;
+    if(!Number.isFinite(days)||days<1)return;
+    current.labor.forEach(record=>{
+      if(String(record.task||'').trim()===String(work.name||'').trim()&&(record.start!==work.start||record.end!==work.end||record.days!==days)){
+        record.start=work.start;record.end=work.end;record.days=days;changed=true;
+      }
+    });
+  });
+  return changed;
+}
+var laborScheduleConsistencyRender=render;
+render=function(){
+  const changed=syncAllLaborSchedules();
+  laborScheduleConsistencyRender();
+  if(changed)put('projects',current);
+};
 </script></body></html>
