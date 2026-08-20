@@ -802,4 +802,52 @@ render=function(){
     }
   });
 };
+</script><script>
+/* 每日成本差異自動列出今天排程中的施工工項，並可帶入兩個每日填報表單。 */
+function dailyScheduleToday(){const now=new Date();return new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);}
+function isScheduledOnDate(item,date){return !!(item.start&&item.end&&item.start<=date&&date<=item.end);}
+function selectDailyScheduledWork(work,date){
+  const planForm=$('dailyPlanForm'),actualForm=$('dailyActualForm');
+  ['dailyPlanProject','dailyActualProject'].forEach(id=>{const project=$(id);project.value=work.parent||work.name;project.onchange();});
+  $('dailyPlanTask').value=work.name;$('dailyActualTask').value=work.name;
+  const entries=(current.daily||[]).filter(row=>row.date===date&&row.task===work.name&&row.trade!=='項目預計成本');
+  const entry=entries[0];
+  planForm.elements.date.value=date;actualForm.elements.date.value=date;
+  planForm.elements.trade.value=entry?.trade||'';actualForm.elements.trade.value=entry?.trade||'';
+  planForm.elements.people.value=entry?.plannedPeople??0;actualForm.elements.people.value=entry?.actualPeople??0;
+  planForm.elements.material.value=entry?.plannedMaterial??0;actualForm.elements.material.value=entry?.actualMaterial??0;
+  planForm.elements.labor.value=entry?.plannedLabor??0;actualForm.elements.labor.value=entry?.actualLabor??0;
+  planForm.scrollIntoView({behavior:'smooth',block:'center'});
+}
+var dailyScheduleRender=render;
+render=function(){
+  dailyScheduleRender();
+  if(!current)return;
+  const date=dailyScheduleToday();
+  const roots=(current.progress||[]).filter(item=>!item.parent);
+  const works=(current.progress||[]).filter(item=>item.parent);
+  const rows=[];
+  roots.forEach(root=>{
+    const children=works.filter(work=>work.parent===root.name).filter(work=>isScheduledOnDate(work,date)||(current.daily||[]).some(row=>row.date===date&&row.task===work.name));
+    if(!children.length)return;
+    if(!knownDailyCostGroups.has(root.name)){knownDailyCostGroups.add(root.name);collapsedDailyCostGroups.add(root.name);}
+    const collapsed=collapsedDailyCostGroups.has(root.name);
+    rows.push(`<tr data-daily-schedule-group="${esc(root.name)}" style="cursor:pointer"><td colspan="11"><b>${collapsed?'＋':'−'} ${esc(root.name)}</b></td></tr>`);
+    if(collapsed)return;
+    children.forEach(work=>{
+      const entries=(current.daily||[]).map((item,index)=>({item,index})).filter(record=>record.item.date===date&&record.item.task===work.name&&record.item.trade!=='項目預計成本');
+      if(!entries.length){
+        rows.push(`<tr data-daily-schedule-task="${esc(work.name)}" style="cursor:pointer"><td>${date}</td><td>　└ ${esc(work.name)}</td><td class="empty">尚未填報</td><td class="num">0</td><td class="num">0</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${diff(0)}</td><td></td></tr>`);
+        return;
+      }
+      entries.forEach(({item,index})=>{
+        const planned=(item.plannedMaterial||0)+(item.plannedLabor||0),actual=(item.actualMaterial||0)+(item.actualLabor||0);
+        rows.push(`<tr data-daily-schedule-task="${esc(work.name)}" style="cursor:pointer"><td>${date}</td><td>　└ ${esc(work.name)}</td><td>${esc(item.trade||'未填寫')}</td><td class="num">${item.plannedPeople??0}</td><td class="num">${item.actualPeople??0}</td><td class="num">${fmt(item.plannedLabor)}</td><td class="num">${fmt(item.actualLabor)}</td><td class="num">${fmt(item.plannedMaterial)}</td><td class="num">${fmt(item.actualMaterial)}</td><td class="num">${diff(planned-actual)}</td><td><button class="danger" onclick="delDetail('daily',${index})">刪除</button></td></tr>`);
+      });
+    });
+  });
+  $('dailyBody').innerHTML=rows.length?rows.join(''):empty(11);
+  $('dailyBody').querySelectorAll('[data-daily-schedule-group]').forEach(row=>{row.onclick=()=>{const name=row.dataset.dailyScheduleGroup;collapsedDailyCostGroups.has(name)?collapsedDailyCostGroups.delete(name):collapsedDailyCostGroups.add(name);render();};});
+  $('dailyBody').querySelectorAll('[data-daily-schedule-task]').forEach(row=>{row.onclick=event=>{if(event.target.closest('button'))return;const work=works.find(item=>item.name===row.dataset.dailyScheduleTask);if(work)selectDailyScheduledWork(work,date);};});
+};
 </script></body></html>
