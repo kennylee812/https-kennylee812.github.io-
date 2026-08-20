@@ -277,6 +277,17 @@ function setProgressDateDefaults(){
 setProgressDateDefaults();
 $('progressForm').addEventListener('reset',()=>setTimeout(setProgressDateDefaults,0));
 </script><script>
+/* 工程排程日期是人工成本起訖日期的唯一來源。 */
+function syncLaborSchedule(task,start,end){
+  const startDate=new Date(`${start}T00:00:00`),endDate=new Date(`${end}T00:00:00`);
+  const days=Math.round((endDate-startDate)/86400000)+1;
+  if(!Number.isFinite(days)||days<1)return;
+  (current?.labor||[]).forEach(record=>{
+    if(String(record.task||'').trim()===String(task||'').trim()){
+      record.start=start;record.end=end;record.days=days;
+    }
+  });
+}
 /* 點選工程項目或施作工項後，可直接調整其排程日期。 */
 var dateEditorRender=render;
 render=function(){
@@ -291,6 +302,7 @@ render=function(){
     const submit=e.target.querySelector('button');submit.disabled=true;submit.textContent='儲存中…';
     try{
       item.start=values.start;item.end=values.end;
+      syncLaborSchedule(item.name,values.start,values.end);
       await put('projects',current);
       alert('排程日期已儲存。');
       render();
