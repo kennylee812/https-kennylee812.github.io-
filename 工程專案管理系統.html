@@ -805,9 +805,11 @@ render=function(){
 </script><script>
 /* 每日成本差異自動列出今天排程中的施工工項，並可帶入兩個每日填報表單。 */
 function dailyScheduleToday(){const now=new Date();return new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);}
-function isScheduledOnDate(item,date){return !!(item.start&&item.end&&item.start<=date&&date<=item.end);}
+function scheduleDate(value){return String(value||'').trim().replace(/\//g,'-').slice(0,10);}
+function isScheduledOnDate(item,date){const start=scheduleDate(item.start),end=scheduleDate(item.end),target=scheduleDate(date);return !!(start&&end&&start<=target&&target<=end);}
 function scheduledLaborForDate(task,date){
-  return (current.labor||[]).filter(item=>item.task===task&&isScheduledOnDate(item,date)).reduce((total,item)=>{
+  const taskName=String(task||'').trim();
+  return (current.labor||[]).filter(item=>String(item.task||'').trim()===taskName&&isScheduledOnDate(item,date)).reduce((total,item)=>{
     const people=+item.people||0;
     total.plannedPeople+=people;
     total.actualPeople+=(+item.actual>0?people:0);
