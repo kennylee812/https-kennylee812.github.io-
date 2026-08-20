@@ -792,6 +792,10 @@ render=function(){
       row.style.cursor='pointer';
       row.onclick=event=>{
         if(event.target.closest('button'))return;
+        if(row.dataset.materialIndex!==undefined){
+          editMaterial(+row.dataset.materialIndex);
+          return;
+        }
         selectWorkForCost('materialProject','materialTask',work.name);
         $('materialForm').scrollIntoView({behavior:'smooth',block:'center'});
       };
