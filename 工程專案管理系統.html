@@ -1029,4 +1029,92 @@ dailyScheduleToday=function(){return dailyCostViewDate||nativeDailyScheduleToday
 var scheduledDailyCostRender=render;
 render=function(){if(current&&!dailyCostViewDate)dailyCostViewDate=resolveDailyCostDate();scheduledDailyCostRender();prepareDailyCostControls();};
 render();
+</script><script>
+/* 每日工作進度達成表：讀取工項工程量、日目標與實際完成量，回寫施工工項進度。 */
+(function(){
+  const progressSheetName='每日工作進度達成表';
+  function numberOrNull(value){
+    if(value===null||value===undefined||String(value).trim()==='')return null;
+    const number=Number(String(value).replace(/,/g,''));return Number.isFinite(number)?number:null;
+  }
+  function isoDate(value){
+    if(value instanceof Date&&!Number.isNaN(value))return value.toISOString().slice(0,10);
+    const text=String(value||'').trim(),match=text.match(/(\d{4})[-\/]?(\d{1,2})[-\/]?(\d{1,2})/);
+    return match?`${match[1]}-${match[2].padStart(2,'0')}-${match[3].padStart(2,'0')}`:'';
+  }
+  function phaseKey(value){const text=String(value||'');return /一期/.test(text)?'一期':/(二期|第二期|三期|第三期)/.test(text)?'二期':'';}
+  function workKey(value){return String(value||'').replace(/\s+/g,'').replace(/^(第?[一二三]期(?:（.*?）)?[｜|:：\-—－]?)?/,'').replace(/[｜|:：\-—－]/g,'').toLocaleLowerCase();}
+  function findScheduledWork(phase,task){
+    const target=workKey(task),phaseValue=phaseKey(phase),works=(current?.progress||[]).filter(item=>item.parent);
+    const matches=works.filter(item=>workKey(item.name)===target||workKey(item.name).includes(target)||target.includes(workKey(item.name)));
+    return matches.find(item=>phaseKey(`${item.parent} ${item.name}`)===phaseValue)||matches[0];
+  }
+  function ensureDailyProgressPanel(){
+    if($('dailyProgressBody'))return;
+    const panel=document.createElement('div');panel.className='panel';
+    panel.innerHTML='<h2>每日施工進度</h2><p class="hint">匯入「每日工作進度達成表」後，依選定日期顯示預計工程量、實際完成量與落後狀態。</p><div class="table-wrap"><table><thead><tr><th>日期</th><th>工程項目／施工工項</th><th>單位</th><th class="num">當日預計量</th><th class="num">實際完成量</th><th class="num">預計累計</th><th class="num">實際累計</th><th class="num">實際進度</th><th>狀態</th></tr></thead><tbody id="dailyProgressBody"></tbody></table></div>';
+    $('dailyBody').closest('.panel').insertAdjacentElement('beforebegin',panel);
+  }
+  function renderDailyProgress(){
+    ensureDailyProgressPanel();if(!current)return;
+    const date=(typeof dailyCostViewDate!=='undefined'&&dailyCostViewDate)||new Date().toISOString().slice(0,10);
+    const rows=(current.dailyProgress||[]).filter(item=>item.date===date).sort((a,b)=>String(a.task).localeCompare(String(b.task),'zh-Hant'));
+    $('dailyProgressBody').innerHTML=rows.length?rows.map(item=>{
+      const actualPct=item.actualCumulative===null||!item.totalQty?'':Math.max(0,Math.min(100,item.actualCumulative/item.totalQty*100));
+      const plannedPct=item.plannedCumulative===null||!item.totalQty?0:item.plannedCumulative/item.totalQty*100;
+      const status=actualPct===''?'尚未填報':actualPct>=plannedPct?'達成':'落後';
+      const statusClass=status==='落後'?'over':status==='達成'?'under':'';
+      const work=findScheduledWork(item.phase,item.task),label=work?`${work.parent}／${work.name}`:`${item.phase}／${item.task}`;
+      return `<tr data-daily-progress-task="${esc(work?.name||'')}"><td>${esc(item.date)}</td><td>　└ ${esc(label)}</td><td>${esc(item.unit||'')}</td><td class="num">${item.plannedQty??''}</td><td class="num">${item.actualQty??''}</td><td class="num">${item.plannedCumulative??''}</td><td class="num">${item.actualCumulative??''}</td><td class="num">${actualPct===''?'':actualPct.toFixed(1)+'%'}</td><td class="${statusClass}">${status}</td></tr>`;
+    }).join(''):empty(9);
+    $('dailyProgressBody').querySelectorAll('[data-daily-progress-task]').forEach(row=>{row.onclick=()=>{const work=findScheduledWork('',row.dataset.dailyProgressTask);if(work)selectDailyScheduledWork(work,date);};});
+  }
+  const progressRender=render;
+  render=function(){progressRender();renderDailyProgress();};
+  const baseExcelRows=excelRows;
+  excelRows=function(projects,mastersData){
+    const rows=baseExcelRows(projects,mastersData);
+    rows['每日施工進度']=projects.flatMap(project=>(project.dailyProgress||[]).map(item=>({'專案名稱':project.name,'日期':item.date,'期別':item.phase,'施工工項':item.task,'單位':item.unit,'工項總量':item.totalQty,'當日預計量':item.plannedQty,'預計累計量':item.plannedCumulative,'實際完成量':item.actualQty,'實際累計量':item.actualCumulative,'實際進度 (%)':item.actualCumulative===null||!item.totalQty?'':item.actualCumulative/item.totalQty*100,'當日必達目標':item.target||''})));
+    return rows;
+  };
+  const standardImport=$('excelImportInput').onchange;
+  $('excelImportInput').onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    if(!window.XLSX){alert('Excel 模組尚未載入，請確認網路連線後再試。');return;}
+    let workbook;try{workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});}catch(error){alert('無法讀取 Excel：'+error.message);e.target.value='';return;}
+    const sheet=workbook.Sheets[progressSheetName];
+    if(!sheet){return standardImport.call($('excelImportInput'),e);}
+    if(!current){alert('請先選擇要更新的專案。');e.target.value='';return;}
+    const rows=XLSX.utils.sheet_to_json(sheet,{range:4,defval:'',raw:false,dateNF:'yyyy-mm-dd'});
+    if(!rows.length){alert('「每日工作進度達成表」沒有可匯入的資料。');e.target.value='';return;}
+    if(!confirm(`將 ${rows.length} 筆每日進度資料匯入「${current.name}」？`)){e.target.value='';return;}
+    current.dailyProgress??=[];let saved=0,updatedProgress=0,missing=[];
+    const cumulative=new Map();
+    rows.sort((a,b)=>isoDate(a['日期']).localeCompare(isoDate(b['日期'])));
+    for(const source of rows){
+      const date=isoDate(source['日期']),phase=String(source['期別']||'').trim(),task=String(source['工項']||source['施工工項']||'').trim();
+      if(!date||!task)continue;
+      const work=findScheduledWork(phase,task);if(!work){missing.push(`${phase}｜${task}`);continue;}
+      const totalQty=numberOrNull(source['工項總量']),plannedQty=numberOrNull(source['當日預計量']),actualQty=numberOrNull(source['實際完成量']),key=`${phaseKey(phase)}|${workKey(task)}`;
+      const givenActualCumulative=numberOrNull(source['實際累計量']);
+      const actualCumulative=givenActualCumulative===null?(actualQty===null?null:(cumulative.get(key)||0)+actualQty):givenActualCumulative;
+      if(actualCumulative!==null)cumulative.set(key,actualCumulative);
+      const record={date,phase,task:work.name,unit:String(source['計量單位']||source['單位']||''),totalQty,plannedQty,plannedCumulative:numberOrNull(source['預計累計量']),actualQty,actualCumulative,target:String(source['當日工班必達目標']||''),people:numberOrNull(source['工班人數']),aerial:String(source['高空車']||'')};
+      const index=current.dailyProgress.findIndex(item=>item.date===date&&phaseKey(item.phase)===phaseKey(phase)&&workKey(item.task)===workKey(work.name));
+      if(index>=0)current.dailyProgress[index]=record;else current.dailyProgress.push(record);
+      saved++;
+    }
+    (current.progress||[]).filter(item=>item.parent).forEach(work=>{
+      const matched=current.dailyProgress.filter(item=>workKey(item.task)===workKey(work.name)&&item.actualCumulative!==null&&item.totalQty);
+      if(!matched.length)return;
+      matched.sort((a,b)=>a.date.localeCompare(b.date));const latest=matched.at(-1);work.actual=Math.max(0,Math.min(100,latest.actualCumulative/latest.totalQty*100));updatedProgress++;
+    });
+    (current.progress||[]).filter(item=>!item.parent).forEach(parent=>{
+      const children=current.progress.filter(item=>item.parent===parent.name);if(children.length)parent.actual=children.reduce((sum,item)=>sum+(+item.actual||0),0)/children.length;
+    });
+    await saveProject();e.target.value='';
+    alert(`每日進度已匯入 ${saved} 筆，已更新 ${updatedProgress} 項施工工項的實際進度。${missing.length?` 未找到施工工項：${[...new Set(missing)].join('、')}`:''}`);
+  };
+  render();
+})();
 </script></body></html>
