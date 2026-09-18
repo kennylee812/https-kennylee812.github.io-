@@ -954,6 +954,7 @@ render=function(){
 </script><script>
 /* 每日成本依排程日期檢視；預計與實際填報永遠使用相同的日期與施工工項。 */
 let dailyCostViewDate='';
+const nativeDailyScheduleToday=dailyScheduleToday;
 function normalizedDate(value){return String(value||'').trim().replace(/\//g,'-').slice(0,10);}
 function scheduledDailyDates(){
   const dates=new Set((current?.daily||[]).map(row=>normalizedDate(row.date)).filter(Boolean));
@@ -961,33 +962,61 @@ function scheduledDailyDates(){
   return [...dates].sort();
 }
 function resolveDailyCostDate(){
-  const dates=scheduledDailyDates(),today=dailyScheduleToday();
+  const dates=scheduledDailyDates(),today=nativeDailyScheduleToday();
   if(dailyCostViewDate&&dates.includes(dailyCostViewDate))return dailyCostViewDate;
   if(dates.includes(today))return today;
   return dates.find(date=>date>=today)||dates[0]||today;
 }
-function syncDailyCostForms(source){
-  const plan=$('dailyPlanForm'),actual=$('dailyActualForm');if(!plan||!actual)return;
-  const sourceForm=source==='actual'?actual:plan,targetForm=source==='actual'?plan:actual;
+function scheduledWorksForDaily(project,date){
+  return (current?.progress||[]).filter(work=>work.parent===project&&(isScheduledOnDate(work,date)||(current.daily||[]).some(row=>normalizedDate(row.date)===date&&row.task===work.name)));
+}
+function refreshDailyTaskOptions(projectId,taskId,date,preferred){
+  const project=$(projectId),task=$(taskId),works=scheduledWorksForDaily(project.value,date);
+  task.innerHTML=works.length?works.map(work=>`<option value="${esc(work.name)}">${esc(work.name)}</option>`).join(''):'<option value="">此日期尚無排程施工工項</option>';
+  task.disabled=!works.length;
+  task.value=works.some(work=>work.name===preferred)?preferred:(works[0]?.name||'');
+}
+function fillDailyInputs(date,task){
+  const rows=(current?.daily||[]).filter(row=>normalizedDate(row.date)===date&&row.task===task);
+  const plan=$('dailyPlanForm'),actual=$('dailyActualForm');
+  const trades=[...new Set(rows.map(row=>row.trade).filter(Boolean))].join('、')||'施工人員';
+  plan.elements.trade.value=trades;actual.elements.trade.value=trades;
+  plan.elements.people.value=rows.reduce((sum,row)=>sum+(+row.plannedPeople||0),0);
+  actual.elements.people.value=rows.reduce((sum,row)=>sum+(+row.actualPeople||0),0);
+  plan.elements.material.value=rows.reduce((sum,row)=>sum+(+row.plannedMaterial||0),0);
+  actual.elements.material.value=rows.reduce((sum,row)=>sum+(+row.actualMaterial||0),0);
+  plan.elements.labor.value=rows.reduce((sum,row)=>sum+(+row.plannedLabor||0),0);
+  actual.elements.labor.value=rows.reduce((sum,row)=>sum+(+row.actualLabor||0),0);
+}
+function syncDailyCostSelection(source){
+  const date=normalizedDate((source==='actual'?$('dailyActualForm'):$('dailyPlanForm')).elements.date.value);
   const sourceProject=$(source==='actual'?'dailyActualProject':'dailyPlanProject');
-  const targetProject=$(source==='actual'?'dailyPlanProject':'dailyActualProject');
   const sourceTask=$(source==='actual'?'dailyActualTask':'dailyPlanTask');
+  const targetProject=$(source==='actual'?'dailyPlanProject':'dailyActualProject');
   const targetTask=$(source==='actual'?'dailyPlanTask':'dailyActualTask');
-  targetProject.value=sourceProject.value;setupProjectWorkSelector(source==='actual'?'dailyPlanProject':'dailyActualProject',source==='actual'?'dailyPlanTask':'dailyActualTask');targetTask.value=sourceTask.value;
-  dailyCostViewDate=normalizedDate(sourceForm.elements.date.value);targetForm.elements.date.value=dailyCostViewDate;
+  targetProject.value=sourceProject.value;
+  refreshDailyTaskOptions(source==='actual'?'dailyPlanProject':'dailyActualProject',source==='actual'?'dailyPlanTask':'dailyActualTask',date,sourceTask.value);
+  refreshDailyTaskOptions(source==='actual'?'dailyActualProject':'dailyPlanProject',source==='actual'?'dailyActualTask':'dailyPlanTask',date,sourceTask.value);
+  targetTask.value=sourceTask.value;dailyCostViewDate=date;
+  $('dailyPlanForm').elements.date.value=date;$('dailyActualForm').elements.date.value=date;
+  if(sourceTask.value)fillDailyInputs(date,sourceTask.value);
 }
 function prepareDailyCostControls(){
   if(!current)return;
-  const plan=$('dailyPlanForm'),actual=$('dailyActualForm');if(!plan||!actual)return;
-  const date=resolveDailyCostDate();dailyCostViewDate=date;
+  const plan=$('dailyPlanForm'),actual=$('dailyActualForm'),date=resolveDailyCostDate();dailyCostViewDate=date;
   plan.elements.date.value=date;actual.elements.date.value=date;
-  plan.elements.date.onchange=()=>{dailyCostViewDate=normalizedDate(plan.elements.date.value);actual.elements.date.value=dailyCostViewDate;render();};
-  actual.elements.date.onchange=()=>{dailyCostViewDate=normalizedDate(actual.elements.date.value);plan.elements.date.value=dailyCostViewDate;render();};
-  $('dailyPlanProject').onchange=()=>{setupProjectWorkSelector('dailyPlanProject','dailyPlanTask');syncDailyCostForms('plan');render();};
-  $('dailyActualProject').onchange=()=>{setupProjectWorkSelector('dailyActualProject','dailyActualTask');syncDailyCostForms('actual');render();};
-  $('dailyPlanTask').onchange=()=>{syncDailyCostForms('plan');render();};
-  $('dailyActualTask').onchange=()=>{syncDailyCostForms('actual');render();};
+  const planProject=$('dailyPlanProject'),actualProject=$('dailyActualProject');
+  const selectedProject=planProject.value||actualProject.value||(current.progress||[]).find(item=>!item.parent)?.name||'';
+  planProject.value=selectedProject;actualProject.value=selectedProject;
+  refreshDailyTaskOptions('dailyPlanProject','dailyPlanTask',date,$('dailyPlanTask').value);
+  refreshDailyTaskOptions('dailyActualProject','dailyActualTask',date,$('dailyPlanTask').value);
+  if($('dailyPlanTask').value)fillDailyInputs(date,$('dailyPlanTask').value);
+  plan.elements.date.onchange=()=>{dailyCostViewDate=normalizedDate(plan.elements.date.value);syncDailyCostSelection('plan');render();};
+  actual.elements.date.onchange=()=>{dailyCostViewDate=normalizedDate(actual.elements.date.value);syncDailyCostSelection('actual');render();};
+  planProject.onchange=()=>{syncDailyCostSelection('plan');render();};actualProject.onchange=()=>{syncDailyCostSelection('actual');render();};
+  $('dailyPlanTask').onchange=()=>{syncDailyCostSelection('plan');render();};$('dailyActualTask').onchange=()=>{syncDailyCostSelection('actual');render();};
 }
+dailyScheduleToday=function(){return dailyCostViewDate||nativeDailyScheduleToday();};
 var scheduledDailyCostRender=render;
-render=function(){scheduledDailyCostRender();prepareDailyCostControls();};
+render=function(){if(current&&!dailyCostViewDate)dailyCostViewDate=resolveDailyCostDate();scheduledDailyCostRender();prepareDailyCostControls();};
 </script></body></html>
