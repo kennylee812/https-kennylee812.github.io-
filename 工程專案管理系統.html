@@ -951,4 +951,43 @@ render=function(){
     }
   }catch(error){console.error('工程項目成本彙總失敗',error);}
 };
+</script><script>
+/* 每日成本依排程日期檢視；預計與實際填報永遠使用相同的日期與施工工項。 */
+let dailyCostViewDate='';
+function normalizedDate(value){return String(value||'').trim().replace(/\//g,'-').slice(0,10);}
+function scheduledDailyDates(){
+  const dates=new Set((current?.daily||[]).map(row=>normalizedDate(row.date)).filter(Boolean));
+  (current?.progress||[]).filter(item=>item.parent).forEach(item=>{if(item.start)dates.add(normalizedDate(item.start));});
+  return [...dates].sort();
+}
+function resolveDailyCostDate(){
+  const dates=scheduledDailyDates(),today=dailyScheduleToday();
+  if(dailyCostViewDate&&dates.includes(dailyCostViewDate))return dailyCostViewDate;
+  if(dates.includes(today))return today;
+  return dates.find(date=>date>=today)||dates[0]||today;
+}
+function syncDailyCostForms(source){
+  const plan=$('dailyPlanForm'),actual=$('dailyActualForm');if(!plan||!actual)return;
+  const sourceForm=source==='actual'?actual:plan,targetForm=source==='actual'?plan:actual;
+  const sourceProject=$(source==='actual'?'dailyActualProject':'dailyPlanProject');
+  const targetProject=$(source==='actual'?'dailyPlanProject':'dailyActualProject');
+  const sourceTask=$(source==='actual'?'dailyActualTask':'dailyPlanTask');
+  const targetTask=$(source==='actual'?'dailyPlanTask':'dailyActualTask');
+  targetProject.value=sourceProject.value;setupProjectWorkSelector(source==='actual'?'dailyPlanProject':'dailyActualProject',source==='actual'?'dailyPlanTask':'dailyActualTask');targetTask.value=sourceTask.value;
+  dailyCostViewDate=normalizedDate(sourceForm.elements.date.value);targetForm.elements.date.value=dailyCostViewDate;
+}
+function prepareDailyCostControls(){
+  if(!current)return;
+  const plan=$('dailyPlanForm'),actual=$('dailyActualForm');if(!plan||!actual)return;
+  const date=resolveDailyCostDate();dailyCostViewDate=date;
+  plan.elements.date.value=date;actual.elements.date.value=date;
+  plan.elements.date.onchange=()=>{dailyCostViewDate=normalizedDate(plan.elements.date.value);actual.elements.date.value=dailyCostViewDate;render();};
+  actual.elements.date.onchange=()=>{dailyCostViewDate=normalizedDate(actual.elements.date.value);plan.elements.date.value=dailyCostViewDate;render();};
+  $('dailyPlanProject').onchange=()=>{setupProjectWorkSelector('dailyPlanProject','dailyPlanTask');syncDailyCostForms('plan');render();};
+  $('dailyActualProject').onchange=()=>{setupProjectWorkSelector('dailyActualProject','dailyActualTask');syncDailyCostForms('actual');render();};
+  $('dailyPlanTask').onchange=()=>{syncDailyCostForms('plan');render();};
+  $('dailyActualTask').onchange=()=>{syncDailyCostForms('actual');render();};
+}
+var scheduledDailyCostRender=render;
+render=function(){scheduledDailyCostRender();prepareDailyCostControls();};
 </script></body></html>
