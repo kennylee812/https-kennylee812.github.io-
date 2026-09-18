@@ -968,7 +968,7 @@ function resolveDailyCostDate(){
   return dates.find(date=>date>=today)||dates[0]||today;
 }
 function scheduledWorksForDaily(project,date){
-  return (current?.progress||[]).filter(work=>work.parent===project&&(isScheduledOnDate(work,date)||(current.daily||[]).some(row=>normalizedDate(row.date)===date&&row.task===work.name)));
+  return (current?.progress||[]).filter(work=>work.parent===project&&!/成本彙整（待分配）/.test(work.name)&&(isScheduledOnDate(work,date)||(current.daily||[]).some(row=>normalizedDate(row.date)===date&&row.task===work.name)));
 }
 function refreshDailyTaskOptions(projectId,taskId,date,preferred){
   const project=$(projectId),task=$(taskId),works=scheduledWorksForDaily(project.value,date);
@@ -1019,4 +1019,5 @@ function prepareDailyCostControls(){
 dailyScheduleToday=function(){return dailyCostViewDate||nativeDailyScheduleToday();};
 var scheduledDailyCostRender=render;
 render=function(){if(current&&!dailyCostViewDate)dailyCostViewDate=resolveDailyCostDate();scheduledDailyCostRender();prepareDailyCostControls();};
+render();
 </script></body></html>
