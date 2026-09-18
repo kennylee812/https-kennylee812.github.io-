@@ -837,6 +837,11 @@ function scheduledLaborForDate(task,date){
     return total;
   },{plannedPeople:0,actualPeople:0,plannedLabor:0,actualLabor:0,trades:[]});
 }
+function scheduledMaterialForDate(task,date){
+  const budget=(current.materials||[]).filter(item=>String(item.task||'').trim()===String(task||'').trim()).reduce((total,item)=>total+(+item.qty||0)*(+item.budget||0),0);
+  const dates=[...new Set((current.daily||[]).filter(row=>String(row.task||'').trim()===String(task||'').trim()).map(row=>scheduleDate(row.date)).filter(Boolean))].sort();
+  return dates.includes(scheduleDate(date))&&dates.length?budget/dates.length:0;
+}
 function selectDailyScheduledWork(work,date){
   const planForm=$('dailyPlanForm'),actualForm=$('dailyActualForm');
   ['dailyPlanProject','dailyActualProject'].forEach(id=>{const project=$(id);project.value=work.parent||work.name;project.onchange();});
@@ -868,14 +873,15 @@ render=function(){
     if(collapsed)return;
     children.forEach(work=>{
       const entries=(current.daily||[]).map((item,index)=>({item,index})).filter(record=>record.item.date===date&&record.item.task===work.name&&record.item.trade!=='項目預計成本');
+      const materialShare=scheduledMaterialForDate(work.name,date);
       if(!entries.length){
-        const labor=scheduledLaborForDate(work.name,date),planned=labor.plannedLabor,actual=labor.actualLabor;
-        rows.push(`<tr data-daily-schedule-task="${esc(work.name)}" style="cursor:pointer"><td>${date}</td><td>　└ ${esc(work.name)}</td><td>${esc(labor.trades.join('、')||'尚未填報')}</td><td class="num">${labor.plannedPeople}</td><td class="num">${labor.actualPeople}</td><td class="num">${fmt(planned)}</td><td class="num">${fmt(actual)}</td><td class="num">${fmt(0)}</td><td class="num">${fmt(0)}</td><td class="num">${diff(planned-actual)}</td><td></td></tr>`);
+        const labor=scheduledLaborForDate(work.name,date),planned=labor.plannedLabor+materialShare,actual=labor.actualLabor;
+        rows.push(`<tr data-daily-schedule-task="${esc(work.name)}" style="cursor:pointer"><td>${date}</td><td>　└ ${esc(work.name)}</td><td>${esc(labor.trades.join('、')||'尚未填報')}</td><td class="num">${labor.plannedPeople}</td><td class="num">${labor.actualPeople}</td><td class="num">${fmt(labor.plannedLabor)}</td><td class="num">${fmt(actual)}</td><td class="num">${fmt(materialShare)}</td><td class="num">${fmt(0)}</td><td class="num">${diff(planned-actual)}</td><td></td></tr>`);
         return;
       }
-      entries.forEach(({item,index})=>{
-        const planned=(item.plannedMaterial||0)+(item.plannedLabor||0),actual=(item.actualMaterial||0)+(item.actualLabor||0);
-        rows.push(`<tr data-daily-schedule-task="${esc(work.name)}" style="cursor:pointer"><td>${date}</td><td>　└ ${esc(work.name)}</td><td>${esc(item.trade||'未填寫')}</td><td class="num">${item.plannedPeople??0}</td><td class="num">${item.actualPeople??0}</td><td class="num">${fmt(item.plannedLabor)}</td><td class="num">${fmt(item.actualLabor)}</td><td class="num">${fmt(item.plannedMaterial)}</td><td class="num">${fmt(item.actualMaterial)}</td><td class="num">${diff(planned-actual)}</td><td><button class="danger" onclick="delDetail('daily',${index})">刪除</button></td></tr>`);
+      entries.forEach(({item,index},entryIndex)=>{
+        const allocatedMaterial=entryIndex===0?materialShare:0,planned=(item.plannedMaterial||0)+(item.plannedLabor||0)+allocatedMaterial,actual=(item.actualMaterial||0)+(item.actualLabor||0);
+        rows.push(`<tr data-daily-schedule-task="${esc(work.name)}" style="cursor:pointer"><td>${date}</td><td>　└ ${esc(work.name)}</td><td>${esc(item.trade||'未填寫')}</td><td class="num">${item.plannedPeople??0}</td><td class="num">${item.actualPeople??0}</td><td class="num">${fmt(item.plannedLabor)}</td><td class="num">${fmt(item.actualLabor)}</td><td class="num">${fmt((item.plannedMaterial||0)+allocatedMaterial)}</td><td class="num">${fmt(item.actualMaterial)}</td><td class="num">${diff(planned-actual)}</td><td><button class="danger" onclick="delDetail('daily',${index})">刪除</button></td></tr>`);
       });
     });
   });
@@ -987,6 +993,9 @@ function fillDailyInputs(date,task){
   actual.elements.material.value=rows.reduce((sum,row)=>sum+(+row.actualMaterial||0),0);
   plan.elements.labor.value=rows.reduce((sum,row)=>sum+(+row.plannedLabor||0),0);
   actual.elements.labor.value=rows.reduce((sum,row)=>sum+(+row.actualLabor||0),0);
+  const autoMaterial=scheduledMaterialForDate(task,date),label=plan.elements.material.closest('label');
+  let hint=label.querySelector('.auto-material-hint');if(!hint){hint=document.createElement('small');hint.className='hint auto-material-hint';label.appendChild(hint);}
+  hint.textContent=`排程分攤物料預算：${fmt(autoMaterial)}（僅供每日檢視，不重複計入總預算）`;
 }
 function syncDailyCostSelection(source){
   const date=normalizedDate((source==='actual'?$('dailyActualForm'):$('dailyPlanForm')).elements.date.value);
