@@ -1132,8 +1132,8 @@ render();
     return dates.length?dates:[...new Set((current?.daily||[]).filter(row=>materialTaskKey(row.task)===materialTaskKey(task)).map(row=>normalizedDate(row.date)).filter(Boolean))].sort();
   }
   function dailyMaterialBudgetShare(task,date){
-    const dates=taskConstructionDates(task),target=normalizedDate(date),budget=taskMaterialBudget(task);
-    return budget&&dates.includes(target)?budget/dates.length:0;
+    const dates=taskConstructionDates(task),budget=taskMaterialBudget(task);
+    return budget&&dates.length?budget/dates.length:0;
   }
   function scheduledMaterialForDate(task,date){
     const stored=(current?.daily||[]).some(row=>normalizedDate(row.date)===normalizedDate(date)&&materialTaskKey(row.task)===materialTaskKey(task)&&(+row.plannedMaterial||0)>0);
