@@ -1117,4 +1117,51 @@ render();
   };
   render();
 })();
+</script><script>
+/* 物料預算依施工天數平均分攤：預計只顯示一次，實際費用則由每日填報累計。 */
+(function(){
+  const materialExactKey=value=>String(value||'').replace(/\s+/g,'').toLocaleLowerCase(),materialTaskKey=value=>materialExactKey(value).replace(/^(第?[一二三]期(?:（.*?）)?[｜|:：\-—－]?)?/,'');
+  function matchingTaskRows(rows,task,field){const exact=rows.filter(item=>materialExactKey(item[field])===materialExactKey(task));return exact.length?exact:rows.filter(item=>materialTaskKey(item[field])===materialTaskKey(task));}
+  function taskMaterialBudget(task){return matchingTaskRows(current?.materials||[],task,'task').reduce((sum,item)=>sum+(+item.qty||0)*(+item.budget||0),0);}
+  function taskConstructionDates(task){
+    const fromProgress=[...new Set(matchingTaskRows(current?.dailyProgress||[],task,'task').map(item=>normalizedDate(item.date)).filter(Boolean))].sort();
+    if(fromProgress.length)return fromProgress;
+    const work=(current?.progress||[]).find(item=>materialTaskKey(item.name)===materialTaskKey(task));
+    const start=normalizedDate(work?.start),end=normalizedDate(work?.end),dates=[];
+    if(start&&end&&start<=end){for(let day=new Date(`${start}T00:00:00`);day<=new Date(`${end}T00:00:00`);day.setDate(day.getDate()+1)){if(day.getDay()!==0&&day.getDay()!==6)dates.push(day.toISOString().slice(0,10));}}
+    return dates.length?dates:[...new Set((current?.daily||[]).filter(row=>materialTaskKey(row.task)===materialTaskKey(task)).map(row=>normalizedDate(row.date)).filter(Boolean))].sort();
+  }
+  function dailyMaterialBudgetShare(task,date){
+    const dates=taskConstructionDates(task),target=normalizedDate(date),budget=taskMaterialBudget(task);
+    return budget&&dates.includes(target)?budget/dates.length:0;
+  }
+  function scheduledMaterialForDate(task,date){
+    const stored=(current?.daily||[]).some(row=>normalizedDate(row.date)===normalizedDate(date)&&materialTaskKey(row.task)===materialTaskKey(task)&&(+row.plannedMaterial||0)>0);
+    return stored?0:dailyMaterialBudgetShare(task,date);
+  }
+  function fillDailyInputs(date,task){
+    const rows=(current?.daily||[]).filter(row=>normalizedDate(row.date)===date&&row.task===task);
+    const plan=$('dailyPlanForm'),actual=$('dailyActualForm'),plannedMaterial=rows.reduce((sum,row)=>sum+(+row.plannedMaterial||0),0),share=dailyMaterialBudgetShare(task,date);
+    const trades=[...new Set(rows.map(row=>row.trade).filter(Boolean))].join('、')||'施工人員';
+    plan.elements.trade.value=trades;actual.elements.trade.value=trades;
+    plan.elements.people.value=rows.reduce((sum,row)=>sum+(+row.plannedPeople||0),0);actual.elements.people.value=rows.reduce((sum,row)=>sum+(+row.actualPeople||0),0);
+    plan.elements.material.value=plannedMaterial||share;actual.elements.material.value=rows.reduce((sum,row)=>sum+(+row.actualMaterial||0),0);
+    plan.elements.labor.value=rows.reduce((sum,row)=>sum+(+row.plannedLabor||0),0);actual.elements.labor.value=rows.reduce((sum,row)=>sum+(+row.actualLabor||0),0);
+    const label=plan.elements.material.closest('label');let hint=label.querySelector('.auto-material-hint');if(!hint){hint=document.createElement('small');hint.className='hint auto-material-hint';label.appendChild(hint);}
+    const days=taskConstructionDates(task).length;hint.textContent=`工項物料總預算 ${fmt(taskMaterialBudget(task))} ÷ ${days||0} 個施工天 = 每日預計 ${fmt(share)}；實際物料費請於下方每日實際成本填報。`;
+  }
+  function selectDailyScheduledWork(work,date){
+    const planForm=$('dailyPlanForm'),actualForm=$('dailyActualForm');['dailyPlanProject','dailyActualProject'].forEach(id=>{const project=$(id);project.value=work.parent||work.name;project.onchange();});
+    $('dailyPlanTask').value=work.name;$('dailyActualTask').value=work.name;fillDailyInputs(date,work.name);planForm.elements.date.value=date;actualForm.elements.date.value=date;planForm.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  window.scheduledMaterialForDate=scheduledMaterialForDate;window.fillDailyInputs=fillDailyInputs;window.selectDailyScheduledWork=selectDailyScheduledWork;
+  projectTotals=function(){
+    const daily=current?.daily||[],materialBudget=(current?.materials||[]).reduce((sum,item)=>sum+(+item.qty||0)*(+item.budget||0),0),materialActual=(current?.materials||[]).reduce((sum,item)=>sum+(+item.qty||0)*(+item.actual||0),0)+daily.reduce((sum,row)=>sum+(+row.actualMaterial||0),0);
+    const nonDuplicatedDailyMaterial=daily.filter(row=>!taskMaterialBudget(row.task)).reduce((sum,row)=>sum+(+row.plannedMaterial||0),0);
+    const laborBudget=(current?.labor||[]).reduce((sum,item)=>sum+(+(item.days??item.hours??0))*(+item.people||1)*(+item.budget||0),0)+daily.reduce((sum,row)=>sum+(+row.plannedLabor||0),0);
+    const laborActual=(current?.labor||[]).reduce((sum,item)=>sum+(+(item.days??item.hours??0))*(+item.people||1)*(+item.actual||0),0)+daily.reduce((sum,row)=>sum+(+row.actualLabor||0),0);
+    return {mb:materialBudget+nonDuplicatedDailyMaterial,ma:materialActual,lb:laborBudget,la:laborActual,b:materialBudget+nonDuplicatedDailyMaterial+laborBudget,a:materialActual+laborActual};
+  };
+  render();
+})();
 </script></body></html>
